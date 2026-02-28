@@ -1,6 +1,6 @@
 # <img width="25" height="25" alt="saizu-logo-2-no-bg" src="https://github.com/user-attachments/assets/320f4c09-086d-4222-b022-cf9d825bd410" />  𝗦 𝗔 𝗜 𝗭 𝗨
 
-> **Know your weight before you ship. Size is a feature, measure it.**
+> **The real weight of your dependencies. Size is a feature, measure it.**
 
 Saizu is a blazingly fast npm package analyzer built with **Bun** and **Hono** — no Node.js, no bloat, no compromises. The entire server runs as a single lightweight process with zero unnecessary dependencies.
 
