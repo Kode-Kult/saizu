@@ -1,4 +1,4 @@
-# 𝗦 𝗔 𝗜 𝗭 𝗨
+# <img width="25" height="25" alt="saizu-logo-2-no-bg" src="https://github.com/user-attachments/assets/320f4c09-086d-4222-b022-cf9d825bd410" />  𝗦 𝗔 𝗜 𝗭 𝗨
 
 > **Know your weight before you ship. Size is a feature, measure it.**
 
@@ -28,3 +28,11 @@ Need to choose between two packages? The **Compare** mode puts them side by side
 Most bundle analyzers require you to install a package locally, run a build, and parse the output. Saizu does none of that — it installs the package in an isolated temp directory, measures it, and discards it. The result is cached in-memory for subsequent requests.
 
 No database. No external services. No persistence layer. Just a single process, a temp folder, and an in-memory cache. The whole analysis takes a few seconds and works on any package, any version, any scope.
+
+## Compare Preview
+
+![sizu-preview](https://github.com/user-attachments/assets/61ddd7e0-5c6f-4da8-8393-2c496fcf5c63)
+
+## Analyze Preview
+
+![saizu-analyze-previw](https://github.com/user-attachments/assets/687c0eb3-5d16-4a83-abfb-4ed698b6ec2c)
