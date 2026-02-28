@@ -23,7 +23,7 @@ export interface AnalysisResult {
 
 export async function analyzePackage(name: string, version?: string): Promise<AnalysisResult> {
 	const id = crypto.randomUUID();
-	const tmpBase = process.env.TMP || process.env.TEMP || '/tmp';
+	const tmpBase = process.env['TMP'] || process.env['TEMP'] || '/tmp';
 	const tempDir = join(tmpBase, `pkgsize-${id}`);
 	const fullPkgName = version ? `${name}@${version}` : name;
 
@@ -106,8 +106,8 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 			...Object.keys(pkgJson.optionalDependencies || {}),
 		];
 
-		const jsSize = typeBreakdown.js || 0;
-		const tsSize = (typeBreakdown.ts || 0) + (typeBreakdown.tsx || 0);
+		const jsSize = typeBreakdown['js'] || 0;
+		const tsSize = (typeBreakdown['ts'] || 0) + (typeBreakdown['tsx'] || 0);
 
 		// BASTARD DETECTION: If it's pure JS (or practically no TS sources), it's a Cavernicolo.
 		// Definition files (.d.ts) don't count towards being modern.
