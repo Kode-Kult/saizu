@@ -13,12 +13,12 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.4.4",
 		"@types/bun": "latest",
-		"typescript": "^5.0.0"
+		"typescript": "5.9.3"
 	},
 	"peerDependencies": {
-		"typescript": "^5"
+		"typescript": "5.9.3"
 	},
 	"dependencies": {
-		"hono": "^4.12.2"
+		"hono": "4.12.3"
 	}
 }

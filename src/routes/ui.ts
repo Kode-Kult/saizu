@@ -743,7 +743,7 @@ const rawJS = `
                 legend.appendChild(item);
             }
 
-			const baseUrl = "${Bun.env.SAIZU_URL || ''}" || window.location.origin;
+			const baseUrl = "${Bun.env['SAIZU_URL'] || ''}" || window.location.origin;
 			const gzipUrl = \`\${baseUrl}/badge/\${query}?type=gzip\`;
 			const installUrl = \`\${baseUrl}/badge/\${query}?type=install\`;
             document.getElementById('badgeGzip').src = gzipUrl;
@@ -1291,7 +1291,7 @@ const HTML = `
     </main>
 
     <footer>
-        Luigi Colantuono © Saizu 2026. Powered by Bun ElysiaJS & Hono.
+        Luigi Colantuono © Saizu 2026. Powered by Bun & Hono.
     </footer>
 
     <script>${minifiedJS}</script>
