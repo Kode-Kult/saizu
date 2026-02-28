@@ -1,0 +1,24 @@
+{
+	"name": "saizu",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"lint": "biome lint .",
+		"format": "biome format . --write",
+		"check": "biome check .",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.4",
+		"@types/bun": "latest",
+		"typescript": "^5.0.0"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"hono": "^4.12.2"
+	}
+}
