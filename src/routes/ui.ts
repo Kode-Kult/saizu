@@ -198,6 +198,9 @@ const rawCriticalCSS = `
         margin-top: 12px;
         min-height: 3.3rem;
     }
+
+    /* Anti-FOUC: hide result sections immediately (before deferred CSS loads) */
+    .pkg-main-card, .install-size-viz, #compareResults { display: none; }
 `;
 
 const rawDeferredCSS = `
