@@ -1096,7 +1096,7 @@ const HTML = `
             <div id="analyzeMode">
                 <div class="search-row">
                     <div class="input-wrapper">
-                        <input type="text" id="pkgInput" placeholder="Analyze package (e.g. zod, discord.js)" spellcheck="false" />
+                        <input type="text" id="pkgInput" placeholder="Analyze package (e.g. zod, hono)" spellcheck="false" />
                     </div>
                     <button id="searchBtn" class="btn-primary" onclick="analyze()">Search</button>
                 </div>
