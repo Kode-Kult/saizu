@@ -575,7 +575,7 @@ export const deferredCSS = minifyCSS(rawDeferredCSS);
 
 const rawJS = `
         // ── CONSTANTS ──
-        const COLORS = { js: '#f472b6', ts: '#3b82f6', json: '#eab308', dts: '#8b5cf6', other: '#3f3f46' };
+        const COLORS = { js: '#fcd34d', ts: '#3b82f6', json: '#22c55e', dts: '#8b5cf6', cjs: '#c95c57', other: '#3f3f46' };
         const COLOR_A = '#f472b6';
         const COLOR_B = '#3b82f6';
 
