@@ -24,21 +24,21 @@ const fontsCSS = `
   src: url('/fonts/Outfit-normal-400.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 @font-face {
   font-family: 'Outfit';
   src: url('/fonts/Outfit-normal-600.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 @font-face {
   font-family: 'Outfit';
   src: url('/fonts/Outfit-normal-700.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 @font-face {
   font-family: 'Outfit';
@@ -55,7 +55,7 @@ const fontsCSS = `
   src: url('/fonts/JetBrains-Mono-normal-600.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 `;
 
@@ -122,7 +122,7 @@ const rawCriticalCSS = `
         z-index: 100;
     }
 
-    .logo { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 1.5rem; letter-spacing: -0.04em; color: white; text-transform: uppercase; }
+    .logo { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 1.5rem; letter-spacing: -0.04em; color: white; text-transform: uppercase; text-decoration: none; cursor: pointer; }
     .logo svg { filter: drop-shadow(0 0 12px rgba(244,114,182,0.4)); }
 
     .support-btn {
@@ -1047,6 +1047,20 @@ const HTML = `
     <link rel="icon" type="image/png" href="/saizu-logo.avif">
     <link rel="apple-touch-icon" href="/saizu-logo.avif">
 
+    <!-- OpenGraph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://saizu.dev/">
+    <meta property="og:title" content="Saizu | Lightning Fast Package Analyzer">
+    <meta property="og:description" content="Analyze npm package size instantly. Get gzip size, install size, dependencies and GitHub badges. Built for the Bun era.">
+    <meta property="og:image" content="https://saizu.dev/saizu-logo.avif">
+    <meta property="og:site_name" content="Saizu">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Saizu | Lightning Fast Package Analyzer">
+    <meta name="twitter:description" content="Analyze npm package size instantly. Get gzip size, install size, dependencies and GitHub badges.">
+    <meta name="twitter:image" content="https://saizu.dev/saizu-logo.avif">
+
     <!-- Font preload removed: @font-face already in inline criticalCSS -->
 
     <!-- Critical CSS INLINE -->
@@ -1057,10 +1071,10 @@ const HTML = `
 </head>
 <body>
     <nav>
-        <div class="logo">
+        <a href="/" class="logo">
                     <img src="/saizu-logo.avif" width="32" height="32" alt="Saizu Logo" style="vertical-align: middle;" loading="eager" />
             Saizu
-        </div>
+        </a>
         <a href="https://www.paypal.com/paypalme/l0g4n7" target="_blank" rel="noopener" class="support-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.593c-.525-.438-1.056-.877-1.575-1.29C5.17 16.194 2 13.265 2 9.5 2 6.42 4.42 4 7.5 4c1.736 0 3.354.86 4.5 2.197C13.146 4.86 14.764 4 16.5 4 19.58 4 22 6.42 22 9.5c0 3.765-3.17 6.694-8.425 10.803-.519.413-1.05.852-1.575 1.29z"/></svg>
             Support Saizu
