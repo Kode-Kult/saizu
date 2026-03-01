@@ -99,6 +99,17 @@ app.get(
 );
 
 app.get(
+	'/saizu-jp.avif',
+	() =>
+		new Response(Bun.file('public/saizu-jp.avif'), {
+			headers: {
+				'Cache-Control': 'public, max-age=31536000, immutable',
+				'Content-Type': 'image/avif',
+			},
+		}),
+);
+
+app.get(
 	'/css/deferred.css',
 	() =>
 		new Response(deferredCSS, {

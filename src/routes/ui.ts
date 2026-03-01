@@ -151,7 +151,7 @@ const rawCriticalCSS = `
 
     header { text-align: left; margin-bottom: 40px; }
     h1 { font-size: 3rem; font-weight: 900; margin: 0 0 24px; letter-spacing: -0.05em; line-height: 1.1; }
-    h1 em { font-style: normal; color: var(--pink); text-shadow: 0 0 30px rgba(255,64,172,0.2); }
+    h1 .saizu-logo-text { height: 1em; width: auto; vertical-align: baseline; position: relative; top: 0.05em; }
 
     .search-row { display: flex; gap: 12px; margin-bottom: 40px; }
     .input-wrapper { flex: 1; position: relative; }
@@ -1089,7 +1089,7 @@ const HTML = `
             <header style="display:flex; align-items:center; gap:32px">
                 <img src="/saizu-logo.avif" width="100" height="100" alt="Saizu" style="flex-shrink:0; margin-top:-95px" fetchpriority="high" />
                 <div>
-                    <h1><em>SAIZU</em> The real weight of your dependencies.</h1>
+                    <h1><img src="/saizu-jp.avif" width="135" height="60" alt="SAIZU" class="saizu-logo-text" fetchpriority="high"> The real weight of your dependencies.</h1>
                     <p class="hero-desc">Size is a feature, Compare, Measure, Choose it.<br>Understand your bundle footprint and generate <b>GitHub badges</b> in seconds.</p>
                 </div>
             </header>
