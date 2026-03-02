@@ -322,12 +322,13 @@ const rawDeferredCSS = `
     .cap-item.active { color: #10b981; }
 
     .badge-section { margin-top: 32px; padding-top: 24px; border-top: 1px dashed var(--border); }
-    .badge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .badge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
     .badge-item { background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; gap: 12px; }
     code {
         width: 100%; background: #111; padding: 12px; border-radius: 8px;
         font-family: var(--font-mono); font-size: 0.75rem; color: var(--pink);
         border: 1px solid var(--border); cursor: pointer; word-break: break-all; text-align: left;
+        flex: 1; display: flex; align-items: flex-start;
     }
     .badge-fmt-tabs {
         display: flex; gap: 4px; width: 100%;
