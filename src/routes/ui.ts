@@ -393,7 +393,7 @@ const rawDeferredCSS = `
     .badge-fmt-btn {
         flex: 1; padding: 5px 0; border-radius: 6px; border: 1px solid var(--border);
         background: transparent; color: var(--text-muted); font-size: 0.7rem; font-weight: 700;
-        cursor: pointer; transition: all 0.15s; font-family: var(--font-mono);
+        cursor: pointer; transition: all 0.15s; font-family: var(--font-main);
         text-transform: uppercase; letter-spacing: 0.04em;
     }
     .badge-fmt-btn.active { background: white; color: black; border-color: white; }
