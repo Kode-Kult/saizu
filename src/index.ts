@@ -110,7 +110,7 @@ app.get(
 );
 
 app.get(
-	'/css/deferred.css',
+	'/css/deferred-:hash.css',
 	() =>
 		new Response(deferredCSS, {
 			headers: {

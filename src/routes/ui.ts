@@ -568,6 +568,10 @@ const rawDeferredCSS = `
 export const criticalCSS = minifyCSS(fontsCSS + rawCriticalCSS);
 export const deferredCSS = minifyCSS(rawDeferredCSS);
 
+// Cache-busting: generate a short content hash for the deferred CSS URL
+const cssHash = new Bun.CryptoHasher('md5').update(deferredCSS).digest('hex').slice(0, 8);
+export const deferredCSSPath = `/css/deferred-${cssHash}.css`;
+
 const rawJS = `
         // ── CONSTANTS ──
         const COLORS = { js: '#fcd34d', ts: '#3b82f6', json: '#22c55e', dts: '#8b5cf6', cjs: '#c95c57', map: '#8e8eb8', md: '#2dd4bf', mjs: '#ba8e00', cts: '#81bdc7', other: '#3f3f46' };
@@ -1065,8 +1069,8 @@ const HTML = `
     <!-- Critical CSS INLINE -->
     <style>${criticalCSS}</style>
     <!-- Deferred CSS non-blocking -->
-    <link rel="preload" href="/css/deferred.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/css/deferred.css"></noscript>
+    <link rel="preload" href="${deferredCSSPath}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="${deferredCSSPath}"></noscript>
 </head>
 <body>
     <nav>

@@ -74,8 +74,11 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 				fileCount++;
 
 				const parts = absolutePath.split('.');
-				const ext = parts.pop()?.toLowerCase() || 'other';
+				let ext = parts.pop()?.toLowerCase() || 'other';
 				const isDts = parts.pop()?.toLowerCase() === 'd';
+
+				// Validate: must be short and alphanumeric, otherwise classify as 'other'
+				if (ext.length > 10 || !/^[a-z0-9]+$/.test(ext)) ext = 'other';
 
 				const finalExt = ext === 'ts' && isDts ? 'dts' : ext;
 				typeBreakdown[finalExt] = (typeBreakdown[finalExt] || 0) + sz;
