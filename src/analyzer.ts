@@ -22,6 +22,7 @@ export interface AnalysisResult {
 
 export async function analyzePackage(name: string, version?: string): Promise<AnalysisResult> {
 	const id = crypto.randomUUID();
+	// biome-ignore lint/complexity/useLiteralKeys: TS index signature requires bracket notation
 	const tmpBase = process.env['TMP'] || process.env['TEMP'] || '/tmp';
 	const tempDir = join(tmpBase, `pkgsize-${id}`);
 	const fullPkgName = version ? `${name}@${version}` : name;
@@ -108,8 +109,6 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 			...Object.keys(pkgJson.optionalDependencies || {}),
 		];
 
-
-
 		let repositoryUrl = repo
 			.replace('git+', '') // git+https:// → https://
 			.replace(/\.git$/, ''); // strip trailing .git
@@ -159,7 +158,6 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 			hasCJS,
 			hasTypes,
 			typeBreakdown,
-
 		};
 	} finally {
 		try {
