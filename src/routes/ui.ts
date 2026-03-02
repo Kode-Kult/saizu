@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { getGitHubStars } from '../github';
 
 const ui = new Hono();
 function minifyCSS(css: string): string {
@@ -124,6 +125,53 @@ const rawCriticalCSS = `
 
     .logo { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 1.5rem; letter-spacing: -0.04em; color: white; text-transform: uppercase; text-decoration: none; cursor: pointer; }
     .logo svg { filter: drop-shadow(0 0 12px rgba(244,114,182,0.4)); }
+
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+
+    /* GitHub Stars Button */
+    @keyframes sparkle-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+    }
+    .gh-stars-btn {
+        position: relative;
+        display: inline-flex; align-items: center; gap: 7px;
+        background: linear-gradient(to bottom, #fde047, #f59e0b, #eab308);
+        color: #000; text-decoration: none;
+        padding: 7px 16px; border-radius: 100px;
+        font-size: 0.82rem; font-weight: 800;
+        letter-spacing: 0.01em;
+        box-shadow: inset 0 0 0 2px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.35);
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+    .gh-stars-btn:hover {
+        transform: translateY(-1px) scale(1.03);
+        box-shadow: inset 0 0 0 2px rgba(0,0,0,0.15), 0 0 20px rgba(245,158,11,0.4), 0 4px 16px rgba(0,0,0,0.3);
+    }
+    .gh-stars-btn:active { transform: scale(0.98); }
+    .gh-stars-btn .gh-icon {
+        background: #000; border-radius: 50%; padding: 3px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .gh-stars-btn .gh-count {
+        font-size: 0.82rem; font-weight: 900; letter-spacing: 0.02em;
+    }
+    /* Sparkle stars */
+    .gh-sparkles { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+    .gh-sparkles svg { position: absolute; fill: currentColor; }
+    .gh-spark-1 { left: -4px; top: -4px; width: 10px; height: 10px; color: #fef9c3; filter: drop-shadow(0 0 5px rgba(255,255,200,0.9)); animation: sparkle-pulse 1.6s ease-in-out infinite; animation-delay: 0.2s; }
+    .gh-spark-2 { right: 3px; top: -7px; width: 9px; height: 9px; color: #fffbeb; filter: drop-shadow(0 0 5px rgba(255,255,220,0.95)); animation: sparkle-pulse 1.9s ease-in-out infinite; animation-delay: 0.7s; }
+    .gh-spark-3 { right: -5px; bottom: -4px; width: 12px; height: 12px; color: #fef08a; filter: drop-shadow(0 0 7px rgba(255,255,180,0.85)); animation: sparkle-pulse 2.2s ease-in-out infinite; animation-delay: 1.1s; }
+    /* Hover shimmer beam */
+    .gh-shimmer { position: absolute; inset: 0; overflow: hidden; border-radius: 100px; pointer-events: none; }
+    .gh-shimmer-beam {
+        position: absolute; left: -40px; right: -40px; top: -24px;
+        height: 40px; transform: rotate(12deg);
+        background: rgba(255,255,255,0.4); filter: blur(8px);
+        opacity: 0; transition: opacity 0.5s;
+    }
+    .gh-stars-btn:hover .gh-shimmer-beam { opacity: 0.4; }
 
     .support-btn {
         display: flex; align-items: center; gap: 7px;
@@ -557,6 +605,10 @@ const rawDeferredCSS = `
         .compare-inputs { flex-direction: column; }
         .vs-divider { align-self: center; }
         .stats-row { grid-template-columns: 1fr 1fr; }
+        .gh-sparkles { display: none; }
+        .gh-stars-btn { padding: 6px 12px; font-size: 0.75rem; }
+        .gh-stars-btn .gh-count { font-size: 0.75rem; }
+        .nav-right { gap: 8px; }
     }
 `;
 
@@ -1034,7 +1086,8 @@ const rawJS = `
 
 export const minifiedJS = minifyJS(rawJS);
 
-const HTML = `
+function buildHTML(starCount: number) {
+	return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1073,10 +1126,22 @@ const HTML = `
                     <img src="/saizu-logo.avif" width="32" height="32" alt="Saizu Logo" style="vertical-align: middle;" loading="eager" />
             Saizu
         </a>
-        <a href="https://www.paypal.com/paypalme/l0g4n7" target="_blank" rel="noopener" class="support-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.593c-.525-.438-1.056-.877-1.575-1.29C5.17 16.194 2 13.265 2 9.5 2 6.42 4.42 4 7.5 4c1.736 0 3.354.86 4.5 2.197C13.146 4.86 14.764 4 16.5 4 19.58 4 22 6.42 22 9.5c0 3.765-3.17 6.694-8.425 10.803-.519.413-1.05.852-1.575 1.29z"/></svg>
-            Support Saizu
-        </a>
+        <div class="nav-right">
+            <a href="https://github.com/Kode-Kult/saizu" target="_blank" rel="noopener" class="gh-stars-btn" aria-label="GitHub Stars">
+                <span class="gh-sparkles" aria-hidden="true">
+                    <svg class="gh-spark-1" viewBox="0 0 24 24"><path d="M12 2l2.4 5.6L20 10l-5.6 2.4L12 18l-2.4-5.6L4 10l5.6-2.4z"/></svg>
+                    <svg class="gh-spark-2" viewBox="0 0 24 24"><path d="M12 2l2.4 5.6L20 10l-5.6 2.4L12 18l-2.4-5.6L4 10l5.6-2.4z"/></svg>
+                    <svg class="gh-spark-3" viewBox="0 0 24 24"><path d="M12 2l2.4 5.6L20 10l-5.6 2.4L12 18l-2.4-5.6L4 10l5.6-2.4z"/></svg>
+                </span>
+                <span class="gh-shimmer" aria-hidden="true"><span class="gh-shimmer-beam"></span></span>
+                <span class="gh-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></span>
+                <span class="gh-count">Stars: ${starCount}</span>
+            </a>
+            <a href="https://www.paypal.com/paypalme/l0g4n7" target="_blank" rel="noopener" class="support-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.593c-.525-.438-1.056-.877-1.575-1.29C5.17 16.194 2 13.265 2 9.5 2 6.42 4.42 4 7.5 4c1.736 0 3.354.86 4.5 2.197C13.146 4.86 14.764 4 16.5 4 19.58 4 22 6.42 22 9.5c0 3.765-3.17 6.694-8.425 10.803-.519.413-1.05.852-1.575 1.29z"/></svg>
+                Support Saizu
+            </a>
+        </div>
     </nav>
 
     <div id="loader" class="loading-line"></div>
@@ -1322,7 +1387,11 @@ const HTML = `
 </body>
 </html>
 `;
+}
 
-ui.get('/', (c) => c.html(HTML));
+ui.get('/', async (c) => {
+	const stars = await getGitHubStars();
+	return c.html(buildHTML(stars));
+});
 
 export default ui;
