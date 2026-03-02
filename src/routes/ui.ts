@@ -369,7 +369,7 @@ const rawDeferredCSS = `
 
     .dl-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
     .dl-bar-row { display: flex; align-items: center; gap: 8px; }
-    .dl-bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .dl-bar-track { flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
     .dl-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
     .dl-bar-label { font-size: 0.7rem; color: #666; min-width: 32px; }
     .dl-bar-value { font-size: 0.7rem; color: white; font-weight: 600; font-family: var(--font-mono); min-width: 45px; text-align: right; }
