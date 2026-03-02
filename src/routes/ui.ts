@@ -569,7 +569,7 @@ export const deferredCSSPath = `/css/deferred.css?v=${cssHash}`;
 
 const rawJS = `
         // ── CONSTANTS ──
-        const COLORS = { js: '#fcd34d', ts: '#3b82f6', json: '#22c55e', dts: '#8b5cf6', cjs: '#c95c57', map: '#8e8eb8', md: '#2dd4bf', mjs: '#ba8e00', cts: '#81bdc7', other: '#3f3f46' };
+        const COLORS = { js: '#fcd34d', ts: '#3b82f6', json: '#22c55e', dts: '#8b5cf6', cjs: '#c95c57', map: '#8e8eb8', md: '#2dd4bf', mjs: '#ba8e00', cts: '#81bdc7', css: '#e879f9', html: '#f97316', yml: '#ef4444', yaml: '#ef4444', txt: '#a3a3a3', xml: '#06b6d4', sh: '#84cc16', svg: '#fb923c', wasm: '#7c3aed', lock: '#6b7280', other: '#3f3f46' };
         const COLOR_A = '#f472b6';
         const COLOR_B = '#3b82f6';
 
@@ -706,11 +706,12 @@ const rawJS = `
             bar.innerHTML = '';
             legend.innerHTML = '';
             const breakdown = data.typeBreakdown || {};
-            // Group tiny segments (<2%) into "other"
+            // Group into "other": tiny segments (<2%), unknown extensions (no dedicated color), or path-like keys
             let otherSize = 0;
             const entries = Object.entries(breakdown).sort((a,b) => b[1]-a[1]);
-            const shown = entries.filter(([ext,size]) => size / data.uncompressedSize >= 0.02 && !ext.includes("/") && ext.charCodeAt(0) !== 92);
-            const hidden = entries.filter(([ext,size]) => (size / data.uncompressedSize < 0.02) || ext.includes("/") || ext.charCodeAt(0) === 92);
+            const hasColor = (ext) => ext !== 'other' && COLORS[ext] !== undefined;
+            const shown = entries.filter(([ext,size]) => size / data.uncompressedSize >= 0.02 && hasColor(ext) && !ext.includes("/") && ext.charCodeAt(0) !== 92);
+            const hidden = entries.filter(([ext,size]) => (size / data.uncompressedSize < 0.02) || !hasColor(ext) || ext.includes("/") || ext.charCodeAt(0) === 92);
             hidden.forEach(([,size]) => otherSize += size);
 
             shown.forEach(([ext, size]) => {

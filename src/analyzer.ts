@@ -73,14 +73,27 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 				totalGzipSize += Bun.gzipSync(uint8).length;
 				fileCount++;
 
-				const parts = absolutePath.split('.');
-				let ext = parts.pop()?.toLowerCase() || 'other';
-				const isDts = parts.pop()?.toLowerCase() === 'd';
+				const basename = absolutePath.split(/[/\\]/).pop() || '';
+				const dotIdx = basename.lastIndexOf('.');
 
-				// Validate: must be short and alphanumeric, otherwise classify as 'other'
-				if (ext.length > 10 || !/^[a-z0-9]+$/.test(ext)) ext = 'other';
+				let ext: string;
+				let isDts = false;
 
-				const finalExt = ext === 'ts' && isDts ? 'dts' : ext;
+				if (dotIdx <= 0) {
+					// No extension (e.g. LICENSE, Makefile) or dotfile (.gitignore)
+					ext = 'other';
+				} else {
+					ext = basename.slice(dotIdx + 1).toLowerCase();
+					// Check for .d.ts pattern
+					const secondDotIdx = basename.lastIndexOf('.', dotIdx - 1);
+					if (secondDotIdx > 0) {
+						isDts = basename.slice(secondDotIdx + 1, dotIdx).toLowerCase() === 'd' && ext === 'ts';
+					}
+					// Validate: must be short and alphanumeric, otherwise classify as 'other'
+					if (ext.length > 10 || !/^[a-z0-9]+$/.test(ext)) ext = 'other';
+				}
+
+				const finalExt = isDts ? 'dts' : ext;
 				typeBreakdown[finalExt] = (typeBreakdown[finalExt] || 0) + sz;
 			} catch (_e) {}
 		};
