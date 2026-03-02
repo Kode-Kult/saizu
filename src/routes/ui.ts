@@ -1040,7 +1040,7 @@ const HTML = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saizu | Lightning Fast Package Analyzer</title>
+    <title>Saizu | npm package analyzer</title>
     <meta name="description" content="Analyze npm package size instantly. Get gzip size, install size, dependencies and GitHub badges. Built for the Bun era — no dist, no compile step.">
     <link rel="icon" type="image/png" href="/saizu-logo.avif">
     <link rel="apple-touch-icon" href="/saizu-logo.avif">
@@ -1048,14 +1048,14 @@ const HTML = `
     <!-- OpenGraph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://saizu.dev/">
-    <meta property="og:title" content="Saizu | Lightning Fast Package Analyzer">
+    <meta property="og:title" content="Saizu | npm package analyzer">
     <meta property="og:description" content="Analyze npm package size instantly. Get gzip size, install size, dependencies and GitHub badges. Built for the Bun era.">
     <meta property="og:image" content="https://saizu.dev/saizu-logo.avif">
     <meta property="og:site_name" content="Saizu">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="Saizu | Lightning Fast Package Analyzer">
+    <meta name="twitter:title" content="Saizu | npm package analyzer">
     <meta name="twitter:description" content="Analyze npm package size instantly. Get gzip size, install size, dependencies and GitHub badges.">
     <meta name="twitter:image" content="https://saizu.dev/saizu-logo.avif">
 
