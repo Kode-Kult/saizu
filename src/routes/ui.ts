@@ -304,23 +304,18 @@ const rawDeferredCSS = `
     .pkg-tag { color: #f472b6; font-weight: 600; border: 1px solid rgba(244,63,94,0.3); padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; }
     .pkg-desc { color: var(--text-muted); line-height: 1.6; font-size: 1.05rem; margin: 16px 0; }
 
-    .stats-secondary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
     .s-box { padding: 16px; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); }
     .s-label { font-size: 0.75rem; font-weight: 700; color: #555; text-transform: uppercase; display: block; margin-bottom: 4px; }
     .s-value { font-size: 1.25rem; font-weight: 800; }
     .s-value span { font-size: 0.8rem; color: #444; margin-left: 2px; }
 
-    .download-section { margin-top: 20px; }
-    .download-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-    .dl-box {
-        padding: 14px 16px; border-radius: 12px;
-        background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04);
-        display: flex; flex-direction: column; gap: 4px;
-    }
-    .dl-label { font-size: 0.68rem; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
-    .dl-value { font-size: 1.05rem; font-weight: 800; }
-    .dl-value span { font-size: 0.75rem; color: #666; margin-left: 2px; font-weight: 600; }
-    @media (max-width: 680px) { .download-grid { grid-template-columns: repeat(2, 1fr); } }
+    .dl-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .dl-bar-row { display: flex; align-items: center; gap: 8px; }
+    .dl-bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .dl-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+    .dl-bar-label { font-size: 0.7rem; color: #666; min-width: 32px; }
+    .dl-bar-value { font-size: 0.7rem; color: white; font-weight: 600; font-family: var(--font-mono); min-width: 45px; text-align: right; }
 
     .capability-row { display: flex; gap: 20px; margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px; }
     .cap-item { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; color: var(--text-muted); }
@@ -566,7 +561,7 @@ const rawDeferredCSS = `
         h1 { font-size: 2rem; }
         .compare-inputs { flex-direction: column; }
         .vs-divider { align-self: center; }
-        .stats-secondary { grid-template-columns: 1fr 1fr; }
+        .stats-row { grid-template-columns: 1fr 1fr; }
     }
 `;
 
@@ -651,21 +646,25 @@ const rawJS = `
             document.getElementById('resLicense').textContent = data.license || 'N/A';
 
             // Download time calculation (based on gzip size)
-            // Bandwidth values in bytes/sec: 2G=30KB/s, 3G=400KB/s, 4G=7MB/s, WiFi=20MB/s
+            // Bandwidth: 4G=7MB/s, WiFi=20MB/s, Gigabit=125MB/s
             function calcDl(bytes, bps) {
                 const ms = (bytes / bps) * 1000;
                 if (ms < 1) return { val: '<1', unit: 'ms' };
                 if (ms < 1000) return { val: ms.toFixed(0), unit: 'ms' };
                 return { val: (ms / 1000).toFixed(1), unit: 's' };
             }
-            function setDl(id, bytes, bps) {
-                const { val, unit } = calcDl(bytes, bps);
-                document.getElementById(id).innerHTML = \`\${val}<span>\${unit}</span>\`;
-            }
-            setDl('dl2g', data.gzipSize, 30 * 1024);
-            setDl('dl3g', data.gzipSize, 400 * 1024);
-            setDl('dl4g', data.gzipSize, 7 * 1024 * 1024);
-            setDl('dlWifi', data.gzipSize, 20 * 1024 * 1024);
+            const dl4g = calcDl(data.gzipSize, 7 * 1024 * 1024);
+            const dlWifi = calcDl(data.gzipSize, 20 * 1024 * 1024);
+            const dlGbit = calcDl(data.gzipSize, 125 * 1024 * 1024);
+            function toMs(dl) { return dl.unit === 's' ? parseFloat(dl.val) * 1000 : parseFloat(dl.val); }
+            const times = [toMs(dl4g), toMs(dlWifi), toMs(dlGbit)];
+            const maxTime = Math.max(...times);
+            document.getElementById('dlBar4g').style.width = (times[0] / maxTime * 100) + '%';
+            document.getElementById('dlBarWifi').style.width = (times[1] / maxTime * 100) + '%';
+            document.getElementById('dlBarGbit').style.width = (times[2] / maxTime * 100) + '%';
+            document.getElementById('dlVal4g').textContent = dl4g.val + dl4g.unit;
+            document.getElementById('dlValWifi').textContent = dlWifi.val + dlWifi.unit;
+            document.getElementById('dlValGbit').textContent = dlGbit.val + dlGbit.unit;
             document.getElementById('resGzip').innerHTML = formatSize(data.gzipSize);
             document.getElementById('resTotal').innerHTML = formatSize(data.uncompressedSize);
             const deps = Array.isArray(data.dependencies) ? data.dependencies : [];
@@ -1142,21 +1141,30 @@ const HTML = `
                     </div>
                     <div id="resDesc" class="pkg-desc">--</div>
 
-                    <!-- Stat boxes -->
-                    <div class="stats-secondary">
+                    <!-- Stat boxes (single row) -->
+                    <div class="stats-row">
                         <div class="s-box"><span class="s-label">Gzip size</span><div class="s-value" id="resGzip">--</div></div>
                         <div class="s-box"><span class="s-label">Install size</span><div class="s-value" id="resTotal">--</div></div>
                         <div class="s-box"><span class="s-label">Files</span><div class="s-value" id="resFiles">--</div></div>
-                    </div>
-
-                    <!-- Download time boxes -->
-                    <div class="download-section">
-                        <span class="s-label" style="margin-bottom: 10px">Download time (gzip)</span>
-                        <div class="download-grid">
-                            <div class="dl-box"><span class="dl-label">2G Edge</span><div class="dl-value" id="dl2g">--</div></div>
-                            <div class="dl-box"><span class="dl-label">3G Slow</span><div class="dl-value" id="dl3g">--</div></div>
-                            <div class="dl-box"><span class="dl-label">4G LTE</span><div class="dl-value" id="dl4g">--</div></div>
-                            <div class="dl-box"><span class="dl-label">Wi-Fi</span><div class="dl-value" id="dlWifi">--</div></div>
+                        <div class="s-box">
+                            <span class="s-label">Download time</span>
+                            <div class="dl-bars">
+                                <div class="dl-bar-row">
+                                    <div class="dl-bar-track"><div class="dl-bar-fill" id="dlBar4g" style="background:#f59e0b"></div></div>
+                                    <span class="dl-bar-label">4G</span>
+                                    <span class="dl-bar-value" id="dlVal4g">--</span>
+                                </div>
+                                <div class="dl-bar-row">
+                                    <div class="dl-bar-track"><div class="dl-bar-fill" id="dlBarWifi" style="background:#06b6d4"></div></div>
+                                    <span class="dl-bar-label">WiFi</span>
+                                    <span class="dl-bar-value" id="dlValWifi">--</span>
+                                </div>
+                                <div class="dl-bar-row">
+                                    <div class="dl-bar-track"><div class="dl-bar-fill" id="dlBarGbit" style="background:#a78bfa"></div></div>
+                                    <span class="dl-bar-label">Gbit</span>
+                                    <span class="dl-bar-value" id="dlValGbit">--</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
