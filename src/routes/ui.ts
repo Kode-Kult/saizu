@@ -290,13 +290,7 @@ const rawDeferredCSS = `
 
     .pkg-main-card { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 40px; margin-bottom: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); position: relative; overflow: hidden; }
 
-    .bastard-banner {
-        display: none; background: #f472b6; color: white; text-align: center;
-        padding: 8px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase;
-        letter-spacing: 0.05em; margin: -40px -40px 30px -40px;
-        animation: pulse-red 2s infinite;
-    }
-    @keyframes pulse-red { 0% { background: #f472b6; } 50% { background: #ef4444; } 100% { background: #f472b6; } }
+
 
     .pkg-info-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
     .pkg-name-display { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 8px; }
@@ -614,7 +608,7 @@ const rawJS = `
         const input = document.getElementById('pkgInput');
         const viz = document.getElementById('vizContainer');
         const card = document.getElementById('pkgResult');
-        const bastard = document.getElementById('bastardBanner');
+
 
         async function analyze(pushHistory = true) {
             const pkg = input.value.trim();
@@ -638,7 +632,7 @@ const rawJS = `
         function renderResults(data, query) {
             viz.style.display = 'block';
             card.style.display = 'block';
-            bastard.style.display = data.isLegacy ? 'block' : 'none';
+
 
             const totalMb = data.uncompressedSize / (1024 * 1024);
             const totalDisplay = totalMb > 0.9 ? totalMb.toFixed(1) + 'MB' : (data.uncompressedSize / 1024).toFixed(1) + 'KB';
@@ -999,9 +993,7 @@ const rawJS = `
             if (a.gzipSize < b.gzipSize) scoreA++; else if (b.gzipSize < a.gzipSize) scoreB++;
             if (a.uncompressedSize < b.uncompressedSize) scoreA++; else if (b.uncompressedSize < a.uncompressedSize) scoreB++;
             if (a.dependencies.length < b.dependencies.length) scoreA++; else if (b.dependencies.length < a.dependencies.length) scoreB++;
-            // Bonus for modern (non-legacy)
-            if (!a.isLegacy && b.isLegacy) scoreA++;
-            if (!b.isLegacy && a.isLegacy) scoreB++;
+
 
             const gzipDiffPct = Math.abs((a.gzipSize - b.gzipSize) / Math.max(a.gzipSize, b.gzipSize) * 100).toFixed(0);
 
@@ -1026,7 +1018,7 @@ const rawJS = `
                 if (winner.gzipSize < loser.gzipSize) parts.push(\`\${gzipDiffPct}% lighter gzip\`);
                 if (winner.uncompressedSize < loser.uncompressedSize) parts.push('smaller install footprint');
                 if (winner.dependencies.length < loser.dependencies.length) parts.push(\`\${loser.dependencies.length - winner.dependencies.length} fewer deps\`);
-                if (!winner.isLegacy && loser.isLegacy) parts.push('modern TypeScript-native source');
+
 
                 body.textContent = parts.length
                     ? \`Wins with: \${parts.join(', ')}.\`
@@ -1132,7 +1124,7 @@ const HTML = `
                 </div>
 
                 <div id="pkgResult" class="pkg-main-card">
-                    <div id="bastardBanner" class="bastard-banner">⚠️ Caveman detected! Still compiling JS files? Upgrade to Bun TS-native. ⚠️</div>
+
                     <div class="pkg-info-row">
                         <div class="pkg-title-area">
                             <div id="resName" class="pkg-name-display">--</div>

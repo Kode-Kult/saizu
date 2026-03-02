@@ -18,7 +18,6 @@ export interface AnalysisResult {
 	hasCJS: boolean;
 	hasTypes: boolean;
 	typeBreakdown: Record<string, number>;
-	isLegacy: boolean;
 }
 
 export async function analyzePackage(name: string, version?: string): Promise<AnalysisResult> {
@@ -109,12 +108,7 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 			...Object.keys(pkgJson.optionalDependencies || {}),
 		];
 
-		const jsSize = typeBreakdown['js'] || 0;
-		const tsSize = (typeBreakdown['ts'] || 0) + (typeBreakdown['tsx'] || 0);
 
-		// BASTARD DETECTION: If it's pure JS (or practically no TS sources), it's a Cavernicolo.
-		// Definition files (.d.ts) don't count towards being modern.
-		const isLegacy = jsSize > 0 && tsSize < jsSize * 0.01;
 
 		let repositoryUrl = repo
 			.replace('git+', '') // git+https:// → https://
@@ -165,7 +159,7 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 			hasCJS,
 			hasTypes,
 			typeBreakdown,
-			isLegacy,
+
 		};
 	} finally {
 		try {
