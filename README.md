@@ -1,6 +1,6 @@
-# <img width="25" height="25" alt="saizu-logo-2-no-bg" src="https://github.com/user-attachments/assets/320f4c09-086d-4222-b022-cf9d825bd410" />  𝗦 𝗔 𝗜 𝗭 𝗨
+# <img width="60" height="60" alt="saizu-logo-2-no-bg" src="https://github.com/user-attachments/assets/320f4c09-086d-4222-b022-cf9d825bd410" />  <img width="135" height="60" alt="saizu-jp-logo-nobg" src="https://github.com/user-attachments/assets/95407965-af1f-4738-bcad-67d2fa5d09fb" />
 
-> **The real weight of your dependencies. Size is a feature, measure it.**
+> 𝗦 𝗔 𝗜 𝗭 𝗨  ︲  **The real weight of your dependencies. Size is a feature, measure it.**
 
 Saizu is a blazingly fast npm package analyzer built with **Bun** and **Hono** — no Node.js, no bloat, no compromises. The entire server runs as a single lightweight process with zero unnecessary dependencies.
 
@@ -31,8 +31,9 @@ No database. No external services. No persistence layer. Just a single process, 
 
 ## Compare Preview
 
-![sizu-preview](https://github.com/user-attachments/assets/61ddd7e0-5c6f-4da8-8393-2c496fcf5c63)
+![saizu-compare-preview](https://github.com/user-attachments/assets/6194884c-e53e-4ec5-9a01-692a0954e756)
+
 
 ## Analyze Preview
 
-![saizu-analyze-previw](https://github.com/user-attachments/assets/687c0eb3-5d16-4a83-abfb-4ed698b6ec2c)
+![saizu-compact](https://github.com/user-attachments/assets/72f1a9e7-1cc6-4943-844a-ef0cfbcd57f8)
