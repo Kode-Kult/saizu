@@ -29,11 +29,16 @@ Most bundle analyzers require you to install a package locally, run a build, and
 
 No database. No external services. No persistence layer. Just a single process, a temp folder, and an in-memory cache. The whole analysis takes a few seconds and works on any package, any version, any scope.
 
-## Compare Preview
-
-![saizu-compare-preview](https://github.com/user-attachments/assets/6194884c-e53e-4ec5-9a01-692a0954e756)
-
 
 ## Analyze Preview
 
-![saizu-compact](https://github.com/user-attachments/assets/72f1a9e7-1cc6-4943-844a-ef0cfbcd57f8)
+<img width="1920" height="2099" alt="image" src="https://github.com/user-attachments/assets/71212a16-f847-4498-a320-085fc6897864" />
+
+
+## Compare Preview
+
+![saizu-compare](https://github.com/user-attachments/assets/942ef725-e035-4836-9672-af1a37a03548)
+
+
+
+
