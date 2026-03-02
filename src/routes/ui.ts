@@ -570,7 +570,7 @@ export const deferredCSS = minifyCSS(rawDeferredCSS);
 
 // Cache-busting: generate a short content hash for the deferred CSS URL
 const cssHash = new Bun.CryptoHasher('md5').update(deferredCSS).digest('hex').slice(0, 8);
-export const deferredCSSPath = `/css/deferred-${cssHash}.css`;
+export const deferredCSSPath = `/css/deferred.css?v=${cssHash}`;
 
 const rawJS = `
         // ── CONSTANTS ──
