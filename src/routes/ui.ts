@@ -817,14 +817,18 @@ const rawJS = `
             // Group into "other": tiny segments (<2%), unknown extensions (no dedicated color), or path-like keys
             let otherSize = 0;
             const entries = Object.entries(breakdown).sort((a,b) => b[1]-a[1]);
-            const hasColor = (ext) => ext !== 'other' && COLORS[ext] !== undefined;
+            const hasColor = (ext) => {
+                const key = ext.startsWith('.') ? ext.slice(1) : ext;
+                return key !== 'other' && COLORS[key] !== undefined;
+            };
             const shown = entries.filter(([ext,size]) => size / data.installSize >= 0.02 && hasColor(ext) && !ext.includes("/") && ext.charCodeAt(0) !== 92);
             const hidden = entries.filter(([ext,size]) => (size / data.installSize < 0.02) || !hasColor(ext) || ext.includes("/") || ext.charCodeAt(0) === 92);
             hidden.forEach(([,size]) => otherSize += size);
 
             shown.forEach(([ext, size]) => {
                 const pct = (size / data.installSize * 100).toFixed(1);
-                const color = COLORS[ext] || COLORS.other;
+                const key = ext.startsWith('.') ? ext.slice(1) : ext;
+                const color = COLORS[key] || COLORS.other;
                 const seg = document.createElement('div');
                 seg.className = 'bar-segment';
                 seg.style.width = pct + '%';
@@ -972,10 +976,10 @@ const rawJS = `
                     fetchTgt(rawB),
                 ]);
 
-                if (resA.error) throw new Error(\`\${pkgA}: \${resA.error}\`);
-                if (resB.error) throw new Error(\`\${pkgB}: \${resB.error}\`);
+                if (resA.error) throw new Error(\`\${rawA}: \${resA.error}\`);
+                if (resB.error) throw new Error(\`\${rawB}: \${resB.error}\`);
 
-                renderCompare(resA, resB, pkgA, pkgB);
+                renderCompare(resA, resB, rawA, rawB);
             } catch (err) {
                 alert('Compare Error: ' + err.message);
             } finally {
@@ -1010,7 +1014,7 @@ const rawJS = `
         function populateCmpCard(side, data, other, isWinner) {
             const s = side; // 'A' or 'B'
             document.getElementById('cmpName' + s).textContent = data.packageName;
-            document.getElementById('cmpVersion' + s).textContent = 'v' + data.version;
+            document.getElementById('cmpVersion' + s).textContent = 'v' + (data.packageVersion || data.version);
             document.getElementById('cmpDesc' + s).textContent = data.description || '';
 
             const statsEl = document.getElementById('cmpStats' + s);
@@ -1022,7 +1026,11 @@ const rawJS = `
                 { name: 'Dependencies', valA: data.dependencies.length, valB: other.dependencies.length, fmt: v => v + '', lowerBetter: true },
             ];
 
-            const maxVal = { 0: Math.max(data.gzipSize, other.gzipSize), 1: Math.max(data.uncompressedSize, other.uncompressedSize), 2: Math.max(data.dependencies.length, other.dependencies.length) };
+            const maxVal = { 
+                0: Math.max(data.gzipSize, other.gzipSize), 
+                1: Math.max(data.installSize, other.installSize), 
+                2: Math.max(data.dependencies.length, other.dependencies.length) 
+            };
 
             metrics.forEach((m, i) => {
                 const better = m.lowerBetter ? m.valA <= m.valB : m.valA >= m.valB;

@@ -174,7 +174,8 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 
 		const typeBreakdown: Record<string, number> = {};
 		for (const relPath of publishableFiles) {
-			const ext = relPath.includes('.') ? `.${relPath.split('.').pop()?.toLowerCase()}` : 'other';
+			const parts = relPath.split('.');
+			const ext = parts.length > 1 ? parts.pop()?.toLowerCase() || 'other' : 'other';
 			const sz = Bun.file(join(analysisDir, relPath)).size;
 			typeBreakdown[ext] = (typeBreakdown[ext] || 0) + sz;
 		}
