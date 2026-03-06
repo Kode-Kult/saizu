@@ -108,6 +108,19 @@ const handleError = (c: Context, error: unknown) => {
 			422,
 		);
 	}
+	if (msg === 'MONOREPO_ROOT') {
+		// biome-ignore lint/suspicious/noExplicitAny: Custom error properties
+		const workspaces = (error as any).workspaces || [];
+		return c.json(
+			{
+				error: 'MONOREPO_ROOT',
+				message: `This is a monorepo root. Please specify a subpath, e.g. ?subpath=${workspaces[0] || 'packages/react'}`,
+				workspaces,
+				statusCode: 422,
+			},
+			422,
+		);
+	}
 	if (msg === 'INVALID_SUBPATH') {
 		return c.json(
 			{ error: 'INVALID_SUBPATH', message: 'The subpath contains .. or invalid characters', statusCode: 422 },

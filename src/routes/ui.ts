@@ -639,6 +639,9 @@ const rawJS = `
         const COLOR_B = '#3b82f6';
 
         // ── UTILITIES ──
+        function authorName(name) {
+            return name.split('/')[0].replace('@', '');
+        }
         function formatSize(bytes) {
             const kb = bytes / 1024;
             if (kb > 900) return \`<b>\${(kb / 1024).toFixed(1)}</b><span>MB</span>\`;
@@ -656,6 +659,12 @@ const rawJS = `
         }
         function loader(show) {
             document.getElementById('loader').style.display = show ? 'block' : 'none';
+        }
+        function classifyInput(raw) {
+            const trimmed = raw.trim();
+            const isGithub = /^[a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_.-]+$/.test(trimmed);
+            if (isGithub) return { type: 'github', value: trimmed };
+            return { type: 'npm', value: trimmed };
         }
 
         // ── MODE SWITCHING ──
@@ -676,16 +685,33 @@ const rawJS = `
 
 
         async function analyze(pushHistory = true) {
-            const pkg = input.value.trim();
-            if (!pkg) return;
-            if (pushHistory) history.pushState({ pkg, mode: 'analyze' }, '', '/?pkg=' + encodeURIComponent(pkg));
+            const raw = input.value.trim();
+            if (!raw) return;
+            const classified = classifyInput(raw);
+            
+            if (pushHistory) history.pushState({ pkg: raw, mode: 'analyze' }, '', '/?pkg=' + encodeURIComponent(raw));
             btn.disabled = true;
             loader(true);
             try {
-                const res = await fetch(\`/api/\${pkg}\`);
+                let url;
+                if (classified.type === 'github') {
+                    const [owner, repo] = classified.value.split('/');
+                    url = \`/api/v1/repo/\${owner}/\${repo}\`;
+                    const params = new URLSearchParams(window.location.search);
+                    if (params.has('subpath')) url += '?subpath=' + params.get('subpath');
+                } else {
+                    url = \`/api/v1/package/\${classified.value}\`;
+                }
+
+                const res = await fetch(url);
                 const data = await res.json();
-                if (data.error) throw new Error(data.error);
-                renderResults(data, pkg);
+                if (data.error) {
+                    if (data.error === 'MONOREPO_ROOT') {
+                        throw new Error(\`Monorepo root. Try: \${data.workspaces[0] || 'subpath'}\`);
+                    }
+                    throw new Error(data.message || data.error);
+                }
+                renderResults(data, raw);
             } catch (err) {
                 alert('Analysis Error: ' + err.message);
             } finally {
@@ -698,15 +724,32 @@ const rawJS = `
             viz.style.display = 'block';
             card.style.display = 'block';
 
-
-            const totalMb = data.uncompressedSize / (1024 * 1024);
-            const totalDisplay = totalMb > 0.9 ? totalMb.toFixed(1) + 'MB' : (data.uncompressedSize / 1024).toFixed(1) + 'KB';
+            const totalDisplay = data.installSize > (900 * 1024) ? (data.installSize / (1024 * 1024)).toFixed(1) + 'MB' : (data.installSize / 1024).toFixed(1) + 'KB';
             document.getElementById('vizSummary').innerHTML = \`<b>\${totalDisplay}</b> / 1 package\`;
 
             document.getElementById('resName').textContent = data.packageName;
-            document.getElementById('resVersion').textContent = 'v' + data.version;
-            document.getElementById('resAuthor').textContent = data.packageName.split('/')[0].replace('@', '');
-            document.getElementById('resDesc').textContent = data.description || "A powerful library analyzed with Bun.";
+            const version = (data.packageVersion === '0.0.0' || !data.packageVersion) ? '(unreleased)' : 'v' + data.packageVersion;
+            document.getElementById('resVersion').textContent = version;
+            
+            const author = data.source === 'github' ? data.owner : authorName(data.packageName);
+            document.getElementById('resAuthor').textContent = author;
+            
+            let desc = data.description || "A powerful library analyzed with Bun.";
+            if (data.source === 'github' && data.commit) {
+                desc = \`<span style="color:var(--pink); font-family:var(--font-mono); font-size:0.85em; background:rgba(244,114,182,0.1); padding:2px 6px; border-radius:4px; margin-right:8px">\${data.branch} @ \${data.commit}</span>\` + desc;
+            }
+            if (data.source === 'github' && data.npmComparison?.available) {
+                const comp = data.npmComparison;
+                const signG = comp.gzipDelta >= 0 ? '+' : '';
+                const signI = comp.installDelta >= 0 ? '+' : '';
+                desc += \`<div style="margin-top:12px; font-size:0.85em; color:var(--text-muted); padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid var(--border)">
+                    vs npm \${comp.publishedVersion} &nbsp; 
+                    <span style="color:\${comp.gzipDelta > 0 ? 'var(--pink)' : 'var(--green)'}">↑ \${signG}\${fmtShort(comp.gzipDelta)} gzip</span> &nbsp; 
+                    <span style="color:\${comp.installDelta > 0 ? 'var(--pink)' : 'var(--green)'}">↑ \${signI}\${fmtShort(comp.installDelta)} install</span>
+                </div>\`;
+            }
+
+            document.getElementById('resDesc').innerHTML = desc;
             document.getElementById('resLicense').textContent = data.license || 'N/A';
 
             // Download time calculation (based on gzip size)
@@ -730,7 +773,7 @@ const rawJS = `
             document.getElementById('dlValWifi').textContent = dlWifi.val + dlWifi.unit;
             document.getElementById('dlValGbit').textContent = dlGbit.val + dlGbit.unit;
             document.getElementById('resGzip').innerHTML = formatSize(data.gzipSize);
-            document.getElementById('resTotal').innerHTML = formatSize(data.uncompressedSize);
+            document.getElementById('resTotal').innerHTML = formatSize(data.installSize);
             const deps = Array.isArray(data.dependencies) ? data.dependencies : [];
             document.getElementById('resDepsCount').textContent = deps.length;
             document.getElementById('resFiles').innerHTML = \`<b>\${data.fileCount || '--'}</b>\`;
@@ -775,12 +818,12 @@ const rawJS = `
             let otherSize = 0;
             const entries = Object.entries(breakdown).sort((a,b) => b[1]-a[1]);
             const hasColor = (ext) => ext !== 'other' && COLORS[ext] !== undefined;
-            const shown = entries.filter(([ext,size]) => size / data.uncompressedSize >= 0.02 && hasColor(ext) && !ext.includes("/") && ext.charCodeAt(0) !== 92);
-            const hidden = entries.filter(([ext,size]) => (size / data.uncompressedSize < 0.02) || !hasColor(ext) || ext.includes("/") || ext.charCodeAt(0) === 92);
+            const shown = entries.filter(([ext,size]) => size / data.installSize >= 0.02 && hasColor(ext) && !ext.includes("/") && ext.charCodeAt(0) !== 92);
+            const hidden = entries.filter(([ext,size]) => (size / data.installSize < 0.02) || !hasColor(ext) || ext.includes("/") || ext.charCodeAt(0) === 92);
             hidden.forEach(([,size]) => otherSize += size);
 
             shown.forEach(([ext, size]) => {
-                const pct = (size / data.uncompressedSize * 100).toFixed(1);
+                const pct = (size / data.installSize * 100).toFixed(1);
                 const color = COLORS[ext] || COLORS.other;
                 const seg = document.createElement('div');
                 seg.className = 'bar-segment';
@@ -796,7 +839,7 @@ const rawJS = `
             });
 
             if (otherSize > 0) {
-                const pct = (otherSize / data.uncompressedSize * 100).toFixed(1);
+                const pct = (otherSize / data.installSize * 100).toFixed(1);
                 const seg = document.createElement('div');
                 seg.className = 'bar-segment';
                 seg.style.width = pct + '%';
@@ -904,17 +947,29 @@ const rawJS = `
         const cmpInputB = document.getElementById('cmpInputB');
 
         async function runCompare() {
-            const pkgA = cmpInputA.value.trim();
-            const pkgB = cmpInputB.value.trim();
-            if (!pkgA || !pkgB) return;
+            const rawA = cmpInputA.value.trim();
+            const rawB = cmpInputB.value.trim();
+            if (!rawA || !rawB) return;
 
             cmpBtn.disabled = true;
             loader(true);
 
             try {
+                const fetchTgt = async (raw) => {
+                    const c = classifyInput(raw);
+                    let url;
+                    if (c.type === 'github') {
+                        const [owner, repo] = c.value.split('/');
+                        url = \`/api/v1/repo/\${owner}/\${repo}\`;
+                    } else {
+                        url = \`/api/v1/package/\${c.value}\`;
+                    }
+                    return fetch(url).then(r => r.json());
+                };
+
                 const [resA, resB] = await Promise.all([
-                    fetch(\`/api/\${pkgA}\`).then(r => r.json()),
-                    fetch(\`/api/\${pkgB}\`).then(r => r.json()),
+                    fetchTgt(rawA),
+                    fetchTgt(rawB),
                 ]);
 
                 if (resA.error) throw new Error(\`\${pkgA}: \${resA.error}\`);
@@ -963,7 +1018,7 @@ const rawJS = `
 
             const metrics = [
                 { name: 'Gzip Size', valA: data.gzipSize, valB: other.gzipSize, fmt: fmtShort, lowerBetter: true },
-                { name: 'Install Size', valA: data.uncompressedSize, valB: other.uncompressedSize, fmt: fmtShort, lowerBetter: true },
+                { name: 'Install Size', valA: data.installSize, valB: other.installSize, fmt: fmtShort, lowerBetter: true },
                 { name: 'Dependencies', valA: data.dependencies.length, valB: other.dependencies.length, fmt: v => v + '', lowerBetter: true },
             ];
 
@@ -1042,7 +1097,7 @@ const rawJS = `
             }
 
             setH2H('h2hGzipA', 'h2hGzipB', a.gzipSize, b.gzipSize, 'diffGzipDelta', fmtShort);
-            setH2H('h2hInstallA', 'h2hInstallB', a.uncompressedSize, b.uncompressedSize, 'diffInstallDelta', fmtShort);
+            setH2H('h2hInstallA', 'h2hInstallB', a.installSize, b.installSize, 'diffInstallDelta', fmtShort);
             setH2H('h2hDepsA', 'h2hDepsB', a.dependencies.length, b.dependencies.length, 'diffDepsDelta', v => v + '');
         }
 
@@ -1058,7 +1113,7 @@ const rawJS = `
             // Score: count wins across gzip, install, deps
             let scoreA = 0, scoreB = 0;
             if (a.gzipSize < b.gzipSize) scoreA++; else if (b.gzipSize < a.gzipSize) scoreB++;
-            if (a.uncompressedSize < b.uncompressedSize) scoreA++; else if (b.uncompressedSize < a.uncompressedSize) scoreB++;
+            if (a.installSize < b.installSize) scoreA++; else if (b.installSize < a.installSize) scoreB++;
             if (a.dependencies.length < b.dependencies.length) scoreA++; else if (b.dependencies.length < a.dependencies.length) scoreB++;
 
 
@@ -1083,7 +1138,7 @@ const rawJS = `
                 
                 const parts = [];
                 if (winner.gzipSize < loser.gzipSize) parts.push(\`\${gzipDiffPct}% lighter gzip\`);
-                if (winner.uncompressedSize < loser.uncompressedSize) parts.push('smaller install footprint');
+                if (winner.installSize < loser.installSize) parts.push('smaller install footprint');
                 if (winner.dependencies.length < loser.dependencies.length) parts.push(\`\${loser.dependencies.length - winner.dependencies.length} fewer deps\`);
 
 
@@ -1186,7 +1241,7 @@ function buildHTML(starCount: number) {
             <div id="analyzeMode">
                 <div class="search-row">
                     <div class="input-wrapper">
-                        <input type="text" id="pkgInput" placeholder="Analyze package (e.g. zod, hono)" spellcheck="false" />
+                        <input type="text" id="pkgInput" placeholder="Analyze package or repo (e.g. react, facebook/react)" spellcheck="false" />
                     </div>
                     <button id="searchBtn" class="btn-primary" onclick="analyze()">Search</button>
                 </div>

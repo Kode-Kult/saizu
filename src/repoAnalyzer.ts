@@ -1,6 +1,6 @@
 // biome-ignore lint/style/useNodejsImportProtocol: Bun-native path resolution required by user
 import { join } from 'path';
-import { type AnalysisResult, analyzeLocalDirectory } from './analyzer';
+import type { AnalysisResult } from './analyzer';
 import { packageCache } from './cache';
 
 export interface RepoAnalysisOptions {
@@ -26,6 +26,85 @@ export interface RepoAnalysisResult extends AnalysisResult {
 	};
 }
 
+async function getPublishableFiles(analysisDir: string): Promise<string[]> {
+	const pkgFile = Bun.file(join(analysisDir, 'package.json'));
+	if (!(await pkgFile.exists())) throw new Error('NO_PACKAGE_JSON');
+	const pkg = await pkgFile.json();
+
+	// Monorepo root detection
+	if (!pkg.files && pkg.workspaces) {
+		const workspaces = Array.isArray(pkg.workspaces) ? pkg.workspaces : (pkg.workspaces.packages ?? []);
+		const err = new Error('MONOREPO_ROOT');
+		// biome-ignore lint/suspicious/noExplicitAny: Custom error properties
+		(err as any).workspaces = workspaces;
+		throw err;
+	}
+
+	// Pattern to include
+	const includePatterns: string[] = pkg.files?.length ? pkg.files : ['**/*'];
+
+	// Exclude ALWAYS these, npm excludes them automatically
+	const ALWAYS_EXCLUDED = [
+		'node_modules',
+		'.git',
+		'.DS_Store',
+		'*.test.*',
+		'*.spec.*',
+		'**/__tests__/**',
+		'**/test/**',
+		'**/tests/**',
+		'**/*.md',
+		'**/*.map',
+		'**/.*',
+		'**/*.snap',
+		'**/fixtures/**',
+		'**/examples/**',
+		'**/benchmark/**',
+		'**/scripts/**',
+	];
+
+	const glob = new Bun.Glob(
+		includePatterns.length === 1 && includePatterns[0] === '**/*' ? '**/*' : `{${includePatterns.join(',')}}`,
+	);
+
+	const allFiles: string[] = [];
+	for await (const file of glob.scan({ cwd: analysisDir, onlyFiles: true })) {
+		allFiles.push(file);
+	}
+
+	// Apply exclusions
+	return allFiles.filter((f) => {
+		const lower = f.toLowerCase();
+		return !ALWAYS_EXCLUDED.some((pattern) => {
+			if (pattern.includes('*')) {
+				return new Bun.Glob(pattern).match(f);
+			}
+			return lower.includes(pattern.toLowerCase());
+		});
+	});
+}
+
+async function getGzipSize(absFilePaths: string[]): Promise<number> {
+	const chunks: Uint8Array[] = [];
+	for (const p of absFilePaths) {
+		chunks.push(new Uint8Array(await Bun.file(p).arrayBuffer()));
+	}
+	const combined = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
+	let offset = 0;
+	for (const chunk of chunks) {
+		combined.set(chunk, offset);
+		offset += chunk.length;
+	}
+
+	// Native CompressionStream (available in Bun)
+	const cs = new CompressionStream('gzip');
+	const writer = cs.writable.getWriter();
+	writer.write(combined);
+	writer.close();
+	const compressed = await new Response(cs.readable).arrayBuffer();
+	return compressed.byteLength;
+}
+
 export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAnalysisResult> {
 	const { owner, repo, branch = 'main', subpath } = options;
 
@@ -41,15 +120,12 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 	try {
 		// 1. Clone repo (shallow clone)
 		const cloneArgs = ['git', 'clone', '--depth', '1'];
-
 		if (branch && branch !== 'HEAD') {
 			cloneArgs.push('--single-branch', '--branch', branch);
 		}
-
 		cloneArgs.push(`https://github.com/${owner}/${repo}.git`, tmpDir);
 
 		const cloneProc = Bun.spawn(cloneArgs, { stderr: 'pipe' });
-
 		let isTimeout = false;
 		const timeoutId = setTimeout(() => {
 			isTimeout = true;
@@ -60,7 +136,6 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 		clearTimeout(timeoutId);
 
 		if (isTimeout) throw new Error('CLONE_TIMEOUT');
-
 		if (cloneExitCode !== 0) {
 			const stderr = await new Response(cloneProc.stderr).text();
 			const lowerStderr = stderr.toLowerCase();
@@ -70,11 +145,7 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			if (lowerStderr.includes('not found') || lowerStderr.includes('could not read from remote')) {
 				throw new Error('REPO_NOT_FOUND');
 			}
-			if (
-				lowerStderr.includes('did not match any file') ||
-				lowerStderr.includes('remote branch') ||
-				lowerStderr.includes('not found in upstream')
-			) {
+			if (lowerStderr.includes('did not match any file') || lowerStderr.includes('remote branch')) {
 				throw new Error('BRANCH_NOT_FOUND');
 			}
 			throw new Error('REPO_NOT_FOUND');
@@ -88,16 +159,42 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 		// 3. Resolve analysis directory
 		const analysisDir = subpath ? join(tmpDir, subpath) : tmpDir;
 		const pkgJsonFile = Bun.file(join(analysisDir, 'package.json'));
-
-		if (!(await pkgJsonFile.exists())) {
-			throw new Error('NO_PACKAGE_JSON');
-		}
+		if (!(await pkgJsonFile.exists())) throw new Error('NO_PACKAGE_JSON');
 
 		const pkgJson = await pkgJsonFile.json();
 		const packageName = pkgJson.name || repo;
 
-		// 4. Analyze local directory (Approccio B)
-		const baseAnalysis = await analyzeLocalDirectory(analysisDir, pkgJson);
+		// 4. Analyze publishable files (Approccio B Refined)
+		const publishableFiles = await getPublishableFiles(analysisDir);
+		const absFilePaths = publishableFiles.map((f) => join(analysisDir, f));
+
+		const uncompressedSize = absFilePaths.reduce((acc, p) => acc + Bun.file(p).size, 0);
+		const gzipSize = await getGzipSize(absFilePaths);
+		const fileCount = publishableFiles.length;
+
+		const typeBreakdown: Record<string, number> = {};
+		for (const relPath of publishableFiles) {
+			const ext = relPath.includes('.') ? `.${relPath.split('.').pop()?.toLowerCase()}` : 'other';
+			const sz = Bun.file(join(analysisDir, relPath)).size;
+			typeBreakdown[ext] = (typeBreakdown[ext] || 0) + sz;
+		}
+
+		const baseAnalysis: AnalysisResult = {
+			packageName,
+			version: pkgJson.version || '0.0.0',
+			license: pkgJson.license || 'N/A',
+			uncompressedSize,
+			gzipSize,
+			fileCount,
+			dependencies: Object.keys(pkgJson.dependencies || {}),
+			description: pkgJson.description || '',
+			repository: `https://github.com/${owner}/${repo}`,
+			homepage: pkgJson.homepage || '',
+			hasESM: !!(pkgJson.module || pkgJson.exports || pkgJson.type === 'module'),
+			hasCJS: !!(pkgJson.main || !pkgJson.type || pkgJson.type === 'commonjs'),
+			hasTypes: !!(pkgJson.types || pkgJson.typings || (await Bun.file(join(analysisDir, 'index.d.ts')).exists())),
+			typeBreakdown,
+		};
 
 		// 5. npmComparison
 		let npmComparison: RepoAnalysisResult['npmComparison'] = {
