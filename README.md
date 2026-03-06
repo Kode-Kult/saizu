@@ -29,6 +29,40 @@ Most bundle analyzers require you to install a package locally, run a build, and
 
 No database. No external services. No persistence layer. Just a single process, a temp folder, and an in-memory cache. The whole analysis takes a few seconds and works on any package, any version, any scope.
 
+## REST API
+
+Saizu provides a public JSON REST API to consume package metrics programmatically.
+
+- **Base URL**: `https://saizu.dev/api/v1`
+- **Rate Limit**: 30 requests per minute per IP.
+- **CORS**: Enabled for all origins.
+
+### Endpoints
+
+\`\`\`bash
+# 1. Analyze a package
+curl https://saizu.dev/api/v1/package/react
+
+# 2. Analyze a specific version
+curl https://saizu.dev/api/v1/package/react?version=18.2.0
+
+# 3. Analyze a scoped package (URL encoded slash or wildcard)
+curl "https://saizu.dev/api/v1/package/@tanstack%2Freact-query"
+# or
+curl https://saizu.dev/api/v1/package/@tanstack/react-query
+
+# 4. Compare two packages
+curl "https://saizu.dev/api/v1/compare?a=axios&b=ky"
+
+# 5. Health check
+curl https://saizu.dev/api/v1/health
+
+# 6. API Reference
+curl https://saizu.dev/api/v1/
+\`\`\`
+
+Note: the API returns all sizes in **pure bytes** and download times in **milliseconds**.
+
 
 ## Analyze Preview
 

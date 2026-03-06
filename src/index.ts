@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import publicApiRoutes from './api';
 import apiRoutes from './routes/api';
 import badgeRoutes from './routes/badge';
 import uiRoutes, { deferredCSS } from './routes/ui';
-
 const app = new Hono();
 
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
@@ -57,6 +57,7 @@ app.use('*', async (c, next) => {
 });
 
 // Sub-routers — native Hono mount, zero bridge overhead
+app.route('/api/v1', publicApiRoutes);
 app.route('/api', apiRoutes);
 app.route('/badge', badgeRoutes);
 
