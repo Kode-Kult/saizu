@@ -9,12 +9,13 @@ const analyzeHandler = async (c: Context) => {
 	const packageParam = c.req.param('package') ?? '';
 	const name = scope ? `${scope}/${packageParam}` : packageParam;
 
-	const cached = packageCache.get(name);
+	const cacheKey = `npm:${name}`;
+	const cached = packageCache.get(cacheKey);
 	if (cached) return c.json(cached);
 
 	try {
 		const result = await analyzePackage(name);
-		packageCache.set(name, result);
+		packageCache.set(cacheKey, result, 30 * 60 * 1000);
 		return c.json(result);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);

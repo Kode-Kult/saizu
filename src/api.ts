@@ -9,42 +9,6 @@ const api = new Hono();
 // Enable CORS for all API routes
 api.use('*', cors({ origin: '*' }));
 
-// Rate limiter state
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_MAX = 60; // Increased for better testing
-const RATE_LIMIT_WINDOW = 60 * 1000;
-
-// Utility to extract real client IP
-const getClientIP = (c: Context) =>
-	c.req.header('x-forwarded-for')?.split(',')[0] || c.req.header('x-real-ip') || '127.0.0.1';
-
-// Rate limit middleware
-api.use('*', async (c, next) => {
-	const ip = getClientIP(c);
-	const now = Date.now();
-	let record = rateLimitMap.get(ip);
-
-	if (!record || now > record.resetAt) {
-		record = { count: 1, resetAt: now + RATE_LIMIT_WINDOW };
-		rateLimitMap.set(ip, record);
-	} else {
-		record.count++;
-	}
-
-	if (record.count > RATE_LIMIT_MAX) {
-		return c.json(
-			{
-				error: 'RATE_LIMITED',
-				message: 'Too many requests. Please try again later.',
-				statusCode: 429,
-			},
-			429,
-		);
-	}
-
-	await next();
-});
-
 // Format internal AnalysisResult to the public API contract
 const formatPackageResult = (data: AnalysisResult | RepoAnalysisResult) => {
 	const calcDlTime = (bytes: number, bps: number) => Math.round((bytes / bps) * 1000);
@@ -199,7 +163,7 @@ const getPackageInfo = async (name: string, version?: string) => {
 	}
 
 	const result = await analyzePackage(name, version);
-	packageCache.set(cacheKey, result, 30 * 60 * 1000); // 30 mins
+	packageCache.set(cacheKey, result, 30 * 60 * 1000); // 30 mins TTL
 	return { data: result, hit: false };
 };
 

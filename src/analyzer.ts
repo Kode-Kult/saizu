@@ -64,52 +64,43 @@ export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Prom
 		} catch (_e) {}
 	};
 
-	// Deterministic inclusion list based on 'files' field
-	const includedPatterns: string[] = Array.isArray(pkgJson.files) ? pkgJson.files : ['**/*'];
-	const includeList = new Set<string>();
+	// Hard exclusions — sempre applicate
+	const EXCLUDED_SEGMENTS = ['node_modules', '.git', '.bun', '__tests__', 'test/', 'tests/'];
+	const EXCLUDED_PATTERNS = [/\.(test|spec)\.[a-z]+$/, /\.snap$/, /bun\.lock$/, /package-lock\.json$/, /yarn\.lock$/];
 
-	for (const pattern of includedPatterns) {
-		const glob = new Bun.Glob(pattern);
-		// scan is async and returns an iterator
-		for await (const file of glob.scan({ cwd: pkgPath, onlyFiles: true })) {
-			includeList.add(join(pkgPath, file));
+	// Se pkg.files esiste, costruisci il set dei file inclusi
+	let includeSet: Set<string> | null = null;
+	if (Array.isArray(pkgJson.files) && pkgJson.files.length > 0) {
+		includeSet = new Set<string>();
+		for (const pattern of pkgJson.files as string[]) {
+			const g = new Bun.Glob(pattern);
+			for await (const f of g.scan({ cwd: pkgPath, onlyFiles: true })) {
+				includeSet.add(f);
+			}
+		}
+		// Aggiungi i file obbligatori npm
+		const mandatoryGlob = new Bun.Glob('{package.json,README*,LICENSE*,LICENCE*,CHANGELOG*}');
+		for await (const f of mandatoryGlob.scan({ cwd: pkgPath, onlyFiles: true })) {
+			includeSet.add(f);
 		}
 	}
 
-	// Always include mandatory files as per npm docs
-	const mandatoryGlob = new Bun.Glob('{package.json,README*,LICENSE*,LICENCE*,CHANGELOG*}');
-	for await (const file of mandatoryGlob.scan({ cwd: pkgPath, onlyFiles: true })) {
-		includeList.add(join(pkgPath, file));
-	}
-
-	// Scan all files in directory and filter
-	const allFilesGlob = new Bun.Glob('**/*');
-	for await (const relativePath of allFilesGlob.scan({ cwd: pkgPath, onlyFiles: true })) {
-		const absolutePath = join(pkgPath, relativePath);
-
-		// Implementation of Approccio B: if files field exists, only measure included files
-		if (Array.isArray(pkgJson.files) && !includeList.has(absolutePath)) {
+	// Unica scansione
+	for await (const relativePath of new Bun.Glob('**/*').scan({ cwd: pkgPath, onlyFiles: true })) {
+		// Se includeSet esiste, skip se non incluso
+		if (includeSet && !includeSet.has(relativePath)) {
 			continue;
 		}
 
-		// Hard exclusions (npm defaults)
-		if (
-			relativePath.includes('node_modules') ||
-			relativePath.startsWith('.git/') ||
-			relativePath === '.git' ||
-			relativePath.includes('.bun/') ||
-			relativePath.endsWith('bun.lock') ||
-			relativePath.endsWith('package-lock.json') ||
-			relativePath.endsWith('yarn.lock') ||
-			relativePath.includes('__tests__/') ||
-			relativePath.includes('test/') ||
-			relativePath.includes('tests/') ||
-			/\.(test|spec)\./.test(relativePath)
-		) {
+		// Hard exclusions
+		if (EXCLUDED_SEGMENTS.some((s) => relativePath.includes(s))) {
+			continue;
+		}
+		if (EXCLUDED_PATTERNS.some((p) => p.test(relativePath))) {
 			continue;
 		}
 
-		await measureFile(absolutePath);
+		await measureFile(join(pkgPath, relativePath));
 	}
 
 	const repo = (typeof pkgJson.repository === 'string' ? pkgJson.repository : pkgJson.repository?.url) || '';
