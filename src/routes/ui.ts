@@ -663,7 +663,7 @@ const rawJS = `
         function classifyInput(raw) {
             const trimmed = raw.trim();
             // owner/repo/tree/branch
-            const treeMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)[/]([a-zA-Z0-9_.-]+)[/]tree[/]([^\s]+)$/);
+            const treeMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)[/]([a-zA-Z0-9_.-]+)[/]tree[/]([^\\s]+)$/);
             if (treeMatch) return { type: 'github', value: treeMatch[1] + '/' + treeMatch[2], branch: treeMatch[3] };
             // plain owner/repo (not @scoped npm)
             const repoMatch = !trimmed.startsWith('@') && trimmed.match(/^([a-zA-Z0-9_.-]+)[/]([a-zA-Z0-9_.-]+)$/);
@@ -702,7 +702,9 @@ const rawJS = `
                     const [owner, repo] = classified.value.split('/');
                     url = \`/api/v1/repo/\${owner}/\${repo}\`;
                     const params = new URLSearchParams(window.location.search);
-                    if (params.has('subpath')) url += '?subpath=' + params.get('subpath');
+                    if (classified.branch) params.set('branch', classified.branch);
+                    const qs = params.toString();
+                    if (qs) url += '?' + qs;
                 } else {
                     url = \`/api/v1/package/\${classified.value}\`;
                 }
@@ -971,6 +973,9 @@ const rawJS = `
                     if (c.type === 'github') {
                         const [owner, repo] = c.value.split('/');
                         url = \`/api/v1/repo/\${owner}/\${repo}\`;
+                        if (c.branch) {
+                            url += '?branch=' + encodeURIComponent(c.branch);
+                        }
                     } else {
                         url = \`/api/v1/package/\${c.value}\`;
                     }
@@ -998,8 +1003,10 @@ const rawJS = `
             document.getElementById('compareResults').style.display = 'block';
 
             // Titles
-            document.getElementById('cmpTitleA').textContent = qA;
-            document.getElementById('cmpTitleB').textContent = qB;
+            const tA = a.source === 'github' && a.branch ? a.packageName + '_' + a.branch : a.packageName;
+            const tB = b.source === 'github' && b.branch ? b.packageName + '_' + b.branch : b.packageName;
+            document.getElementById('cmpTitleA').textContent = tA;
+            document.getElementById('cmpTitleB').textContent = tB;
 
             // Determine gzip winner (lower = better)
             const gzipWinnerA = a.gzipSize <= b.gzipSize;
@@ -1122,8 +1129,8 @@ const rawJS = `
             const headline = document.getElementById('verdictHeadline');
             const body = document.getElementById('verdictBody');
 
-            const nameA = a.packageName;
-            const nameB = b.packageName;
+            const nameA = a.source === 'github' && a.branch ? a.packageName + ' (' + a.branch + ')' : a.packageName;
+            const nameB = b.source === 'github' && b.branch ? b.packageName + ' (' + b.branch + ')' : b.packageName;
 
             // Score: count wins across gzip, install, deps
             let scoreA = 0, scoreB = 0;
@@ -1143,13 +1150,14 @@ const rawJS = `
             } else {
                 const winner = scoreA > scoreB ? a : b;
                 const loser  = scoreA > scoreB ? b : a;
-                const isA    = winner === a;
+                const winnerName = scoreA > scoreB ? nameA : nameB;
+                const loserName = scoreA > scoreB ? nameB : nameA;
 
                 box.style.borderColor = 'rgba(16,185,129,0.35)';
                 box.style.background = 'rgba(16,185,129,0.06)';
                 icon.textContent = '🏆';
                 headline.style.color = '#10b981';
-                headline.textContent = \`\${winner.packageName} wins\`;
+                headline.textContent = winnerName + ' wins';
                 
                 const parts = [];
                 if (winner.gzipSize < loser.gzipSize) parts.push(\`\${gzipDiffPct}% lighter gzip\`);
@@ -1158,8 +1166,8 @@ const rawJS = `
 
 
                 body.textContent = parts.length
-                    ? \`Wins with: \${parts.join(', ')}.\`
-                    : \`Edges out \${loser.packageName} across multiple metrics.\`;
+                    ? 'Wins with: ' + parts.join(', ') + '.'
+                    : 'Edges out ' + loserName + ' across multiple metrics.';
             }
         }
 
