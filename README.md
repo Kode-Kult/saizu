@@ -36,18 +36,18 @@ Saizu provides a public JSON REST API to consume package metrics programmaticall
 
 ```bash
 # 1. Analyze a package
-curl https://saizu.dev/api/v1/package/react
+curl "https://saizu.dev/api/v1/package/react"
 
 # 2. Analyze a specific version
-curl https://saizu.dev/api/v1/package/react?version=18.2.0
+curl "https://saizu.dev/api/v1/package/react?version=18.2.0"
 
 # 3. Analyze a scoped package (URL encoded slash or wildcard)
 curl "https://saizu.dev/api/v1/package/@tanstack%2Freact-query"
 # or
-curl https://saizu.dev/api/v1/package/@tanstack/react-query
+curl "https://saizu.dev/api/v1/package/@tanstack/react-query"
 
 # 4. Analyze a GitHub repo (pre-publish)
-curl https://saizu.dev/api/v1/repo/facebook/react
+curl "https://saizu.dev/api/v1/repo/facebook/react"
 
 # 5. Analyze a GitHub repo with branch and subpath (Monorepo)
 curl "https://saizu.dev/api/v1/repo/tanstack/query?branch=beta&subpath=packages/react-query"
@@ -59,10 +59,10 @@ curl "https://saizu.dev/api/v1/compare?a=axios&b=ky"
 curl "https://saizu.dev/api/v1/compare?a=axios&b=github:axios/axios"
 
 # 8. Health check
-curl https://saizu.dev/api/v1/health
+curl "https://saizu.dev/api/v1/health"
 
 # 9. API Reference
-curl https://saizu.dev/api/v1/
+curl "https://saizu.dev/api/v1/"
 ```
 ```json
 {
