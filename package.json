@@ -7,8 +7,7 @@
 		"lint": "biome lint .",
 		"format": "biome format . --write",
 		"check": "biome check .",
-		"typecheck": "tsc --noEmit",
-		"test": "bun test"
+		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.6",
