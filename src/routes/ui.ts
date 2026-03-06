@@ -661,12 +661,8 @@ const rawJS = `
             document.getElementById('loader').style.display = show ? 'block' : 'none';
         }
         function classifyInput(raw) {
-            let trimmed = raw.trim();
-            // Clean full GitHub URLs: https://github.com/owner/repo or github.com/owner/repo/tree/branch
-            const ghUrlMatch = trimmed.match(/(?:https?:\\/\\/)?github\\.com\\/([a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_.-]+)/);
-            if (ghUrlMatch) return { type: 'github', value: ghUrlMatch[1] };
-            // owner/repo format — include hyphen in character class
-            const isGithub = /^[a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_./-]+$/.test(trimmed) && !trimmed.startsWith('@');
+            const trimmed = raw.trim();
+            const isGithub = /^[a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_.-]+$/.test(trimmed);
             if (isGithub) return { type: 'github', value: trimmed };
             return { type: 'npm', value: trimmed };
         }
@@ -744,12 +740,14 @@ const rawJS = `
             }
             if (data.source === 'github' && data.npmComparison?.available) {
                 const comp = data.npmComparison;
+                const arrowG = comp.gzipDelta >= 0 ? '↑' : '↓';
+                const arrowI = comp.installDelta >= 0 ? '↑' : '↓';
                 const signG = comp.gzipDelta >= 0 ? '+' : '';
                 const signI = comp.installDelta >= 0 ? '+' : '';
                 desc += \`<div style="margin-top:12px; font-size:0.85em; color:var(--text-muted); padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid var(--border)">
                     vs npm \${comp.publishedVersion} &nbsp; 
-                    <span style="color:\${comp.gzipDelta > 0 ? 'var(--pink)' : 'var(--green)'}">↑ \${signG}\${fmtShort(comp.gzipDelta)} gzip</span> &nbsp; 
-                    <span style="color:\${comp.installDelta > 0 ? 'var(--pink)' : 'var(--green)'}">↑ \${signI}\${fmtShort(comp.installDelta)} install</span>
+                    <span style="color:\${comp.gzipDelta > 0 ? 'var(--pink)' : 'var(--green)'}">\${arrowG} \${signG}\${fmtShort(comp.gzipDelta)} gzip</span> &nbsp; 
+                    <span style="color:\${comp.installDelta > 0 ? 'var(--pink)' : 'var(--green)'}">\${arrowI} \${signI}\${fmtShort(comp.installDelta)} install</span>
                 </div>\`;
             }
 
