@@ -185,7 +185,7 @@ api.get('/package/*', async (c) => {
 api.get('/repo/:owner/:repo', async (c) => {
 	const owner = c.req.param('owner');
 	const repo = c.req.param('repo');
-	const branch = c.req.query('branch') ?? 'main';
+	const branch = c.req.query('branch');
 	const subpath = c.req.query('subpath');
 
 	if (!owner || !repo) return c.json({ error: 'MISSING_PARAMS', statusCode: 400 }, 400);
