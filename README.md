@@ -11,7 +11,7 @@ Paste any npm package name and Saizu will instantly tell you everything you need
 - **Gzip size** and **install size** — the real numbers, not estimates
 - **File count** and **type breakdown** — see exactly what you're shipping (`.js`, `.d.ts`, `.mjs`, and more) visualized as an interactive distribution bar
 - **Dependencies** — the full list, each one clickable to inspect recursively
-- **Download time** — calculated across 2G, 3G, 4G and Wi-Fi so you know the real-world impact
+- **Download time** — calculated across 4G, Wi-Fi and Gbit so you know the real-world impact
 - **Module format** — ESM, CommonJS, and TypeScript types availability at a glance
 - **License** — detected directly from the package manifest
 - **GitHub Badges** — copy-paste ready in both Markdown and HTML format, served instantly with no external service latency
