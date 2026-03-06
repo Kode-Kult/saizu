@@ -68,13 +68,14 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 
 		if (cloneExitCode !== 0) {
 			const stderr = await new Response(cloneProc.stderr).text();
+			const lowerStderr = stderr.toLowerCase();
 			if (stderr.includes('Authentication failed') || stderr.includes('could not read Username')) {
 				throw new Error('PRIVATE_REPO');
 			}
-			if (stderr.toLowerCase().includes('not found') || stderr.toLowerCase().includes('could not read from remote')) {
+			if (lowerStderr.includes('not found') || lowerStderr.includes('could not read from remote')) {
 				throw new Error('REPO_NOT_FOUND');
 			}
-			if (stderr.toLowerCase().includes('did not match any file')) {
+			if (lowerStderr.includes('did not match any file') || lowerStderr.includes('remote branch') || lowerStderr.includes('not found in upstream')) {
 				throw new Error('BRANCH_NOT_FOUND');
 			}
 			// Fallback generic error
@@ -100,8 +101,8 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 		const packageName = packageJsonObj.name || repo;
 
 		// Use base analysis pipeline
-		// On Linux, path is standard unix string
-		const baseAnalysis = await analyzePackage(packageName, `file:${analysisDir}`);
+		// Pass absolute path directly, Bun handles this safely on Linux
+		const baseAnalysis = await analyzePackage(packageName, analysisDir);
 
 		let npmComparison: RepoAnalysisResult['npmComparison'] = {
 			available: false,

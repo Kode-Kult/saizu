@@ -35,7 +35,7 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 			cmd: ['bun', 'add', fullPkgName],
 			cwd: tempDir,
 			stdout: 'ignore',
-			stderr: 'ignore',
+			stderr: 'pipe',
 		});
 
 		const timeout = setTimeout(() => {
@@ -46,7 +46,8 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 		clearTimeout(timeout);
 
 		if (exitCode !== 0) {
-			throw new Error(`Failed to install package ${fullPkgName}`);
+			const errorMsg = await new Response(proc.stderr).text();
+			throw new Error(`Failed to install package ${fullPkgName}: ${errorMsg.trim() || 'Unknown error'}`);
 		}
 
 		const pkgPath = join(tempDir, 'node_modules', ...name.split(/[/\\]/));
