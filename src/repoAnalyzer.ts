@@ -75,7 +75,11 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			if (lowerStderr.includes('not found') || lowerStderr.includes('could not read from remote')) {
 				throw new Error('REPO_NOT_FOUND');
 			}
-			if (lowerStderr.includes('did not match any file') || lowerStderr.includes('remote branch') || lowerStderr.includes('not found in upstream')) {
+			if (
+				lowerStderr.includes('did not match any file') ||
+				lowerStderr.includes('remote branch') ||
+				lowerStderr.includes('not found in upstream')
+			) {
 				throw new Error('BRANCH_NOT_FOUND');
 			}
 			// Fallback generic error
