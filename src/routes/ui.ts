@@ -662,12 +662,12 @@ const rawJS = `
         }
         function classifyInput(raw) {
             const trimmed = raw.trim();
-            // owner/repo/tree/branch
-            const treeMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)[/]([a-zA-Z0-9_.-]+)[/]tree[/]([^\\s]+)$/);
-            if (treeMatch) return { type: 'github', value: treeMatch[1] + '/' + treeMatch[2], branch: treeMatch[3] };
-            // plain owner/repo (not @scoped npm)
-            const repoMatch = !trimmed.startsWith('@') && trimmed.match(/^([a-zA-Z0-9_.-]+)[/]([a-zA-Z0-9_.-]+)$/);
-            if (repoMatch) return { type: 'github', value: trimmed, branch: null };
+            // owner/repo/tree/branch[:subpath]
+            const treeMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)[/]([a-zA-Z0-9_.-]+)[/]tree[/]([^:\\s]+)(?::([^\\s]+))?$/);
+            if (treeMatch) return { type: 'github', value: treeMatch[1] + '/' + treeMatch[2], branch: treeMatch[3], subpath: treeMatch[4] || null };
+            // plain owner/repo[:subpath] (not @scoped npm)
+            const repoMatch = !trimmed.startsWith('@') && trimmed.match(/^([a-zA-Z0-9_.-]+)[/]([a-zA-Z0-9_.-]+)(?::([^\\s]+))?$/);
+            if (repoMatch) return { type: 'github', value: repoMatch[1] + '/' + repoMatch[2], branch: null, subpath: repoMatch[3] || null };
             return { type: 'npm', value: trimmed };
         }
 
@@ -703,6 +703,7 @@ const rawJS = `
                     url = \`/api/v1/repo/\${owner}/\${repo}\`;
                     const params = new URLSearchParams(window.location.search);
                     if (classified.branch) params.set('branch', classified.branch);
+                    if (classified.subpath) params.set('subpath', classified.subpath);
                     const qs = params.toString();
                     if (qs) url += '?' + qs;
                 } else {
@@ -719,7 +720,11 @@ const rawJS = `
                 }
                 renderResults(data, raw);
             } catch (err) {
-                alert('Analysis Error: ' + err.message);
+                if (err.message.includes('Monorepo root')) {
+                    alert(err.message + '\\n(add :subpath to your search, e.g. facebook/react:packages/react)');
+                } else {
+                    alert('Analysis Error: ' + err.message);
+                }
             } finally {
                 btn.disabled = false;
                 loader(false);
@@ -972,12 +977,14 @@ const rawJS = `
                     let url;
                     if (c.type === 'github') {
                         const [owner, repo] = c.value.split('/');
-                        url = \`/api/v1/repo/\${owner}/\${repo}\`;
-                        if (c.branch) {
-                            url += '?branch=' + encodeURIComponent(c.branch);
-                        }
+                        url = '/api/v1/repo/' + owner + '/' + repo;
+                        const params = new URLSearchParams();
+                        if (c.branch) params.set('branch', c.branch);
+                        if (c.subpath) params.set('subpath', c.subpath);
+                        const qs = params.toString();
+                        if (qs) url += '?' + qs;
                     } else {
-                        url = \`/api/v1/package/\${c.value}\`;
+                        url = '/api/v1/package/' + c.value;
                     }
                     return fetch(url).then(r => r.json());
                 };
@@ -1261,7 +1268,14 @@ function buildHTML(starCount: number) {
             </div>
 
             <!-- Usage hint -->
-            <p id="usageHint" style="font-size:0.82rem; color:#666; margin:-20px 0 28px; line-height:1.6">Search npm packages like <span style="color:var(--pink)">react</span> or <span style="color:var(--pink)">@tanstack/react-query</span>, or GitHub repos like <span style="color:var(--pink)">facebook/react</span> or <span style="color:var(--pink)">tanstack/query/tree/beta</span> for a specific branch.</p>
+            <div id="usageHint" style="font-size:0.85rem; color:#888; margin:-15px 0 28px; line-height:1.6; text-align: left; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border)">
+                <ul style="margin: 0; padding-left: 20px; list-style-type: disc">
+                    <li>Vuoi cercare un package npm? Digita semplicemente il nome del pacchetto (es. <code style="color:var(--pink)">react</code>)</li>
+                    <li>Vuoi cercare una repo github? Digita <code style="color:var(--pink)">&lt;user/org&gt;/&lt;nome-repo&gt;</code></li>
+                    <li>Vuoi analizzare o comparare un branch? Usa <code style="color:var(--pink)">&lt;user/org&gt;/&lt;nome-repo&gt;/tree/&lt;nome-branch&gt;</code></li>
+                    <li>Vuoi analizzare un workspace di un monorepo? Aggiungi <code style="color:var(--pink)">:&lt;subpath&gt;</code> alla fine</li>
+                </ul>
+            </div>
             <!-- ANALYZE MODE -->
             <div id="analyzeMode">
                 <div class="search-row">
