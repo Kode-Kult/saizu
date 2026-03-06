@@ -59,10 +59,10 @@ curl "https://saizu.dev/api/v1/compare?a=axios&b=ky"
 curl "https://saizu.dev/api/v1/compare?a=axios&b=github:axios/axios"
 
 # 8. Health check
-curl https://saizu.dev/api/v1/health
+curl "https://saizu.dev/api/v1/health"
 
 # 9. API Reference
-curl https://saizu.dev/api/v1/
+curl "https://saizu.dev/api/v1/"
 ```
 ```json
 {
