@@ -11,17 +11,12 @@ Paste any npm package name and Saizu will instantly tell you everything you need
 - **Gzip size** and **install size** — the real numbers, not estimates
 - **File count** and **type breakdown** — see exactly what you're shipping (`.js`, `.d.ts`, `.mjs`, and more) visualized as an interactive distribution bar
 - **Dependencies** — the full list, each one clickable to inspect recursively
-- **Download time** — calculated across 2G, 3G, 4G and Wi-Fi so you know the real-world impact
+- **Download time** — calculated across 4G, Wi-Fi and Gbit so you know the real-world impact
 - **Module format** — ESM, CommonJS, and TypeScript types availability at a glance
 - **License** — detected directly from the package manifest
 - **GitHub Badges** — copy-paste ready in both Markdown and HTML format, served instantly with no external service latency
 
 Need to choose between two packages? The **Compare** mode puts them side by side with a detailed diff of every metric so you can make an informed decision.
-
-## Tech
-
-- **[Bun](https://bun.sh)** — runtime, package manager, and TypeScript executor. No compile step, no `dist` folder.
-- **[Hono](https://hono.dev)** — ultrafast web framework with zero dependencies, built on Web Standard APIs.
 
 ## Why Saizu
 
@@ -39,7 +34,7 @@ Saizu provides a public JSON REST API to consume package metrics programmaticall
 
 ### Endpoints
 
-\`\`\`bash
+```bash
 # 1. Analyze a package
 curl https://saizu.dev/api/v1/package/react
 
@@ -59,9 +54,47 @@ curl https://saizu.dev/api/v1/health
 
 # 6. API Reference
 curl https://saizu.dev/api/v1/
-\`\`\`
+```
+```json
+{
+  "name": "@tanstack/react-query",
+  "version": "5.90.21",
+  "description": "Hooks for managing, caching and syncing asynchronous and remote data in React",
+  "license": "MIT",
+  "author": "tanstack",
+  "gzipSize": 228158,
+  "installSize": 734321,
+  "fileCount": 325,
+  "fileTypes": {
+    "md": 4462,
+    "other": 1079,
+    "json": 4367,
+    "tsx": 7511,
+    "ts": 54459,
+    "cjs": 175377,
+    "cts": 70362,
+    "map": 297586,
+    "js": 48826,
+    "dts": 70292
+  },
+  "dependencies": [
+    "@tanstack/query-core",
+    "react"
+  ],
+  "dependencyCount": 2,
+  "hasESM": true,
+  "hasCJS": true,
+  "hasTypes": true,
+  "downloadTime": {
+    "4g": 31,
+    "wifi": 11,
+    "gbit": 2
+  }
+}
+```
 
-Note: the API returns all sizes in **pure bytes** and download times in **milliseconds**.
+
+> Note: the API returns all sizes in **pure bytes** and download times in **milliseconds**.
 
 
 ## Analyze Preview
