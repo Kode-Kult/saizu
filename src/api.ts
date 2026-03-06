@@ -2,6 +2,7 @@ import { type Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { type AnalysisResult, analyzePackage } from './analyzer';
 import { packageCache } from './cache';
+import { analyzeRepo, type RepoAnalysisResult } from './repoAnalyzer';
 
 const api = new Hono();
 
@@ -45,14 +46,14 @@ api.use('*', async (c, next) => {
 });
 
 // Format internal AnalysisResult to the public API contract
-const formatPackageResult = (data: AnalysisResult) => {
+const formatPackageResult = (data: AnalysisResult | RepoAnalysisResult) => {
 	// Standardize download times (in milliseconds)
 	const calcDlTime = (bytes: number, bps: number) => Math.round((bytes / bps) * 1000);
 	const dl4g = calcDlTime(data.gzipSize, 7 * 1024 * 1024);
 	const dlWifi = calcDlTime(data.gzipSize, 20 * 1024 * 1024);
 	const dlGbit = calcDlTime(data.gzipSize, 125 * 1024 * 1024);
 
-	return {
+	const base = {
 		name: data.packageName,
 		version: data.version,
 		description: data.description || '',
@@ -73,11 +74,40 @@ const formatPackageResult = (data: AnalysisResult) => {
 			gbit: dlGbit,
 		},
 	};
+
+	if ('source' in data && data.source === 'github') {
+		return {
+			source: 'github',
+			owner: data.owner,
+			repo: data.repo,
+			branch: data.branch,
+			subpath: data.subpath,
+			commit: data.commit,
+			...base,
+			npmComparison: data.npmComparison,
+			cachedAt: new Date().toISOString(),
+		};
+	}
+
+	return { source: 'npm', ...base };
 };
 
 // Generic error handler to adhere to the requested JSON response shape
 const handleError = (c: Context, error: unknown) => {
 	const msg = error instanceof Error ? error.message : String(error);
+
+	if (msg === 'REPO_NOT_FOUND' || msg === 'BRANCH_NOT_FOUND' || msg === 'SUBPATH_NOT_FOUND') {
+		return c.json({ error: msg, message: msg, statusCode: 404 }, 404);
+	}
+	if (msg === 'NO_PACKAGE_JSON' || msg === 'INVALID_SUBPATH') {
+		return c.json({ error: msg, message: msg, statusCode: 422 }, 422);
+	}
+	if (msg === 'CLONE_TIMEOUT') {
+		return c.json({ error: msg, message: msg, statusCode: 408 }, 408);
+	}
+	if (msg === 'PRIVATE_REPO') {
+		return c.json({ error: msg, message: msg, statusCode: 400 }, 400);
+	}
 
 	if (msg.includes('not found') || msg.includes('Failed to install')) {
 		return c.json(
@@ -115,9 +145,18 @@ api.get('/', (c) => {
 		baseUrl: 'https://saizu.dev/api/v1',
 		endpoints: [
 			{ method: 'GET', path: '/package/:name', description: 'Analyze a single npm package' },
-			{ method: 'GET', path: '/compare?a=pkg1&b=pkg2', description: 'Compare two npm packages' },
+			{ method: 'GET', path: '/repo/:owner/:repo', description: 'Analyze a public GitHub repo (pre-publish)' },
+			{
+				method: 'GET',
+				path: '/compare?a=target1&b=target2',
+				description: 'Compare two targets (npm or github:owner/repo)',
+			},
 			{ method: 'GET', path: '/health', description: 'Health check' },
 		],
+		targetFormats: {
+			npm: 'react, @tanstack/react-query, react@18.2.0',
+			github: 'github:owner/repo, github:owner/repo@branch, github:owner/repo@branch:subpath',
+		},
 	});
 });
 
@@ -132,7 +171,7 @@ api.get('/health', (c) => {
 });
 
 const getPackageInfo = async (name: string, version?: string) => {
-	const cacheKey = version ? `${name}@${version}` : name;
+	const cacheKey = version ? `npm:${name}@${version}` : `npm:${name}`;
 	const cached = packageCache.get(cacheKey);
 
 	if (cached) {
@@ -141,6 +180,19 @@ const getPackageInfo = async (name: string, version?: string) => {
 
 	const result = await analyzePackage(name, version);
 	packageCache.set(cacheKey, result);
+	return { data: result, hit: false };
+};
+
+const getRepoInfo = async (owner: string, repo: string, branch?: string, subpath?: string) => {
+	const cacheKey = `github:${owner}/${repo}@${branch || 'main'}:${subpath ?? ''}`;
+	const cached = packageCache.get(cacheKey);
+
+	if (cached) {
+		return { data: cached, hit: true };
+	}
+
+	const result = await analyzeRepo({ owner, repo, branch, subpath });
+	packageCache.set(cacheKey, result, 5 * 60 * 1000);
 	return { data: result, hit: false };
 };
 
@@ -167,7 +219,37 @@ api.get('/package/*', async (c) => {
 		const { data, hit } = await getPackageInfo(name, version);
 
 		c.header('X-Cache', hit ? 'HIT' : 'MISS');
-		c.header('Cache-Control', 'public, max-age=300');
+		c.header('Cache-Control', 'public, max-age=1800'); // 30 minutes for NPM
+
+		return c.json(formatPackageResult(data));
+	} catch (error) {
+		return handleError(c, error);
+	}
+});
+
+// GET /api/v1/repo/:owner/:repo
+api.get('/repo/:owner/:repo', async (c) => {
+	const owner = c.req.param('owner');
+	const repo = c.req.param('repo');
+	const branch = c.req.query('branch') || 'main';
+	const subpath = c.req.query('subpath');
+
+	if (!owner || !repo) {
+		return c.json(
+			{
+				error: 'MISSING_PARAMS',
+				message: 'Owner and repo are required',
+				statusCode: 400,
+			},
+			400,
+		);
+	}
+
+	try {
+		const { data, hit } = await getRepoInfo(owner, repo, branch, subpath);
+
+		c.header('X-Cache', hit ? 'HIT' : 'MISS');
+		c.header('Cache-Control', 'public, max-age=300'); // 5 minutes for GitHub
 
 		return c.json(formatPackageResult(data));
 	} catch (error) {
@@ -192,7 +274,41 @@ api.get('/compare', async (c) => {
 	}
 
 	try {
-		const [resA, resB] = await Promise.all([getPackageInfo(pkgA), getPackageInfo(pkgB)]);
+		const fetchTarget = async (target: string) => {
+			if (target.startsWith('github:')) {
+				const withoutPrefix = target.slice('github:'.length);
+				let ownerRepo = withoutPrefix;
+				let branch = 'main';
+				let subpath: string | undefined;
+
+				const colonIdx = withoutPrefix.indexOf(':');
+				if (colonIdx !== -1) {
+					subpath = withoutPrefix.slice(colonIdx + 1);
+					ownerRepo = withoutPrefix.slice(0, colonIdx);
+				}
+
+				const atIdx = ownerRepo.indexOf('@');
+				if (atIdx !== -1) {
+					branch = ownerRepo.slice(atIdx + 1);
+					ownerRepo = ownerRepo.slice(0, atIdx);
+				}
+
+				const [owner, repoName] = ownerRepo.split('/');
+				if (!owner || !repoName) throw new Error(`Invalid github format: ${target}`);
+
+				return getRepoInfo(owner, repoName, branch, subpath);
+			}
+
+			const atIdx = target.lastIndexOf('@');
+			if (atIdx > 0) {
+				const name = target.slice(0, atIdx);
+				const version = target.slice(atIdx + 1);
+				return getPackageInfo(name, version);
+			}
+			return getPackageInfo(target);
+		};
+
+		const [resA, resB] = await Promise.all([fetchTarget(pkgA), fetchTarget(pkgB)]);
 
 		c.header('X-Cache', resA.hit && resB.hit ? 'HIT' : 'MISS');
 		c.header('Cache-Control', 'public, max-age=300');

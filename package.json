@@ -11,7 +11,7 @@
 		"test": "bun test"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.4",
+		"@biomejs/biome": "2.4.6",
 		"@types/bun": "latest",
 		"typescript": "5.9.3"
 	},
@@ -19,6 +19,6 @@
 		"typescript": "5.9.3"
 	},
 	"dependencies": {
-		"hono": "4.12.3"
+		"hono": "4.12.5"
 	}
 }

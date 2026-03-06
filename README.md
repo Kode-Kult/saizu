@@ -46,13 +46,22 @@ curl "https://saizu.dev/api/v1/package/@tanstack%2Freact-query"
 # or
 curl https://saizu.dev/api/v1/package/@tanstack/react-query
 
-# 4. Compare two packages
+# 4. Analyze a GitHub repo (pre-publish)
+curl https://saizu.dev/api/v1/repo/facebook/react
+
+# 5. Analyze a GitHub repo with branch and subpath (Monorepo)
+curl "https://saizu.dev/api/v1/repo/tanstack/query?branch=beta&subpath=packages/react-query"
+
+# 6. Compare two packages (npm vs npm)
 curl "https://saizu.dev/api/v1/compare?a=axios&b=ky"
 
-# 5. Health check
+# 7. Compare npm package vs GitHub repo
+curl "https://saizu.dev/api/v1/compare?a=axios&b=github:axios/axios"
+
+# 8. Health check
 curl https://saizu.dev/api/v1/health
 
-# 6. API Reference
+# 9. API Reference
 curl https://saizu.dev/api/v1/
 ```
 ```json

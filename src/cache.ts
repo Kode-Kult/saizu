@@ -1,4 +1,5 @@
 import type { AnalysisResult } from './analyzer';
+import type { RepoAnalysisResult } from './repoAnalyzer';
 
 export class Cache<T> {
 	private cache = new Map<string, { value: T; expires: number }>();
@@ -33,4 +34,4 @@ export class Cache<T> {
 	}
 }
 
-export const packageCache = new Cache<AnalysisResult>();
+export const packageCache = new Cache<AnalysisResult | RepoAnalysisResult>();
