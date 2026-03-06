@@ -661,8 +661,12 @@ const rawJS = `
             document.getElementById('loader').style.display = show ? 'block' : 'none';
         }
         function classifyInput(raw) {
-            const trimmed = raw.trim();
-            const isGithub = /^[a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_.-]+$/.test(trimmed);
+            let trimmed = raw.trim();
+            // Clean full GitHub URLs: https://github.com/owner/repo or github.com/owner/repo/tree/branch
+            const ghUrlMatch = trimmed.match(/(?:https?:\\/\\/)?github\\.com\\/([a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_.-]+)/);
+            if (ghUrlMatch) return { type: 'github', value: ghUrlMatch[1] };
+            // owner/repo format — include hyphen in character class
+            const isGithub = /^[a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_./-]+$/.test(trimmed) && !trimmed.startsWith('@');
             if (isGithub) return { type: 'github', value: trimmed };
             return { type: 'npm', value: trimmed };
         }

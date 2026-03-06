@@ -27,7 +27,7 @@ export interface RepoAnalysisResult extends AnalysisResult {
 }
 
 export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAnalysisResult> {
-	const { owner, repo, branch = 'main', subpath } = options;
+	const { owner, repo, branch, subpath } = options;
 
 	if (subpath && (subpath.includes('..') || subpath.startsWith('/'))) {
 		throw new Error('INVALID_SUBPATH');
@@ -39,10 +39,10 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 	const tmpDir = join(tmpBase, `saizu-repo-${id}`);
 
 	try {
-		// 1. Shallow clone
-		const cloneArgs = ['git', 'clone', '--depth', '1'];
+		// 1. Shallow clone — if branch specified use it, otherwise let git use repo default (main/master/etc)
+		const cloneArgs = ['git', 'clone', '--depth', '1', '--single-branch'];
 		if (branch && branch !== 'HEAD') {
-			cloneArgs.push('--single-branch', '--branch', branch);
+			cloneArgs.push('--branch', branch);
 		}
 		cloneArgs.push(`https://github.com/${owner}/${repo}.git`, tmpDir);
 
@@ -70,10 +70,14 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			throw new Error('REPO_NOT_FOUND');
 		}
 
-		// 2. Commit hash
+		// 2. Commit hash + actual branch (may differ from requested if default was used)
 		const hashProc = Bun.spawn(['git', '-C', tmpDir, 'rev-parse', '--short', 'HEAD'], { stdout: 'pipe' });
 		await hashProc.exited;
 		const commit = (await new Response(hashProc.stdout).text()).trim();
+
+		const branchProc = Bun.spawn(['git', '-C', tmpDir, 'rev-parse', '--abbrev-ref', 'HEAD'], { stdout: 'pipe' });
+		await branchProc.exited;
+		const actualBranch = (await new Response(branchProc.stdout).text()).trim() || branch || 'main';
 
 		// 3. Resolve analysis directory
 		const analysisDir = subpath ? join(tmpDir, subpath) : tmpDir;
@@ -136,7 +140,7 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			source: 'github',
 			owner,
 			repo,
-			branch,
+			branch: actualBranch,
 			subpath,
 			commit,
 			npmComparison,
