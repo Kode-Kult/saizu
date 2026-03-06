@@ -19,11 +19,17 @@ export interface AnalysisResult {
 	typeBreakdown: Record<string, number>;
 }
 
-/**
- * Core measurement logic for a directory (Approccio B).
- * Respects the 'files' field in package.json and excludes common noise.
- */
-// biome-ignore lint/suspicious/noExplicitAny: package.json structure
+// Hard exclusions — always applied regardless of pkg.files
+const EXCLUDED_SEGMENTS = ['node_modules', '.git/', '.bun/', '__tests__/', 'test/', 'tests/'];
+const EXCLUDED_PATTERNS = [/\.(test|spec)\.[a-z]+$/, /\.snap$/, /bun\.lock$/, /package-lock\.json$/, /yarn\.lock$/];
+
+function isExcluded(relativePath: string): boolean {
+	if (EXCLUDED_SEGMENTS.some((s) => relativePath.includes(s))) return true;
+	if (EXCLUDED_PATTERNS.some((p) => p.test(relativePath))) return true;
+	return false;
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: package.json structure is dynamic
 export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Promise<AnalysisResult> {
 	let totalUncompressedSize = 0;
 	let totalGzipSize = 0;
@@ -42,9 +48,8 @@ export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Prom
 			totalGzipSize += Bun.gzipSync(uint8).length;
 			fileCount++;
 
-			const basename = absolutePath.split(/[/\\]/).pop() || '';
+			const basename = absolutePath.split(/[/\\]/).pop() ?? '';
 			const dotIdx = basename.lastIndexOf('.');
-
 			let ext: string;
 			let isDts = false;
 
@@ -60,15 +65,11 @@ export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Prom
 			}
 
 			const finalExt = isDts ? 'dts' : ext;
-			typeBreakdown[finalExt] = (typeBreakdown[finalExt] || 0) + sz;
+			typeBreakdown[finalExt] = (typeBreakdown[finalExt] ?? 0) + sz;
 		} catch (_e) {}
 	};
 
-	// Hard exclusions — sempre applicate
-	const EXCLUDED_SEGMENTS = ['node_modules', '.git', '.bun', '__tests__', 'test/', 'tests/'];
-	const EXCLUDED_PATTERNS = [/\.(test|spec)\.[a-z]+$/, /\.snap$/, /bun\.lock$/, /package-lock\.json$/, /yarn\.lock$/];
-
-	// Se pkg.files esiste, costruisci il set dei file inclusi
+	// Build includeSet from pkg.files if present
 	let includeSet: Set<string> | null = null;
 	if (Array.isArray(pkgJson.files) && pkgJson.files.length > 0) {
 		includeSet = new Set<string>();
@@ -78,69 +79,55 @@ export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Prom
 				includeSet.add(f);
 			}
 		}
-		// Aggiungi i file obbligatori npm
+		// Always include mandatory npm files
 		const mandatoryGlob = new Bun.Glob('{package.json,README*,LICENSE*,LICENCE*,CHANGELOG*}');
 		for await (const f of mandatoryGlob.scan({ cwd: pkgPath, onlyFiles: true })) {
 			includeSet.add(f);
 		}
 	}
 
-	// Unica scansione
+	// Single scan pass — filter by includeSet and hard exclusions
 	for await (const relativePath of new Bun.Glob('**/*').scan({ cwd: pkgPath, onlyFiles: true })) {
-		// Se includeSet esiste, skip se non incluso
-		if (includeSet && !includeSet.has(relativePath)) {
-			continue;
-		}
-
-		// Hard exclusions
-		if (EXCLUDED_SEGMENTS.some((s) => relativePath.includes(s))) {
-			continue;
-		}
-		if (EXCLUDED_PATTERNS.some((p) => p.test(relativePath))) {
-			continue;
-		}
-
+		if (includeSet && !includeSet.has(relativePath)) continue;
+		if (isExcluded(relativePath)) continue;
 		await measureFile(join(pkgPath, relativePath));
 	}
 
-	const repo = (typeof pkgJson.repository === 'string' ? pkgJson.repository : pkgJson.repository?.url) || '';
-	const hasESM = !!(pkgJson.module || pkgJson.exports || pkgJson.type === 'module');
-	const hasCJS = !!(pkgJson.main || !pkgJson.type || pkgJson.type === 'commonjs');
-	const hasTypes = !!(pkgJson.types || pkgJson.typings || (await Bun.file(join(pkgPath, 'index.d.ts')).exists()));
-
-	const allDeps = [
-		...Object.keys(pkgJson.dependencies || {}),
-		...Object.keys(pkgJson.peerDependencies || {}),
-		...Object.keys(pkgJson.optionalDependencies || {}),
-	];
-
-	let repositoryUrl = repo.replace('git+', '').replace(/\.git$/, '');
+	const rawRepo = (typeof pkgJson.repository === 'string' ? pkgJson.repository : pkgJson.repository?.url) || '';
+	let repositoryUrl = rawRepo.replace('git+', '').replace(/\.git$/, '');
 	if (repositoryUrl.startsWith('git@')) {
 		repositoryUrl = repositoryUrl.replace('git@', 'https://').replace(/(?<=https:\/\/[^/]+):/, '/');
 	} else if (/^github:/i.test(repositoryUrl)) {
 		repositoryUrl = repositoryUrl.replace(/^github:/i, 'https://github.com/');
 	} else if (repositoryUrl && !repositoryUrl.startsWith('http')) {
-		if (repositoryUrl.includes('/') && !repositoryUrl.includes(':')) {
-			repositoryUrl = `https://github.com/${repositoryUrl}`;
-		} else {
-			repositoryUrl = '';
-		}
+		repositoryUrl =
+			repositoryUrl.includes('/') && !repositoryUrl.includes(':') ? `https://github.com/${repositoryUrl}` : '';
 	}
 
+	const hasESM = !!(pkgJson.module || pkgJson.exports || pkgJson.type === 'module');
+	const hasCJS = !!(pkgJson.main || !pkgJson.type || pkgJson.type === 'commonjs');
+	const hasTypes = !!(pkgJson.types || pkgJson.typings || (await Bun.file(join(pkgPath, 'index.d.ts')).exists()));
+
 	const rawLicense = pkgJson.license || pkgJson.licenses?.[0]?.type || '';
-	const license = typeof rawLicense === 'string' ? rawLicense : rawLicense.type || '';
+	const license = typeof rawLicense === 'string' ? rawLicense : ((rawLicense as { type?: string }).type ?? '');
+
+	const allDeps = [
+		...Object.keys((pkgJson.dependencies as Record<string, string>) || {}),
+		...Object.keys((pkgJson.peerDependencies as Record<string, string>) || {}),
+		...Object.keys((pkgJson.optionalDependencies as Record<string, string>) || {}),
+	];
 
 	return {
-		packageName: pkgJson.name,
-		version: pkgJson.version || '0.0.0',
+		packageName: pkgJson.name as string,
+		version: (pkgJson.version as string) || '0.0.0',
 		license,
 		uncompressedSize: totalUncompressedSize,
 		gzipSize: totalGzipSize,
 		fileCount,
 		dependencies: Array.from(new Set(allDeps)),
-		description: pkgJson.description || '',
+		description: (pkgJson.description as string) || '',
 		repository: repositoryUrl,
-		homepage: pkgJson.homepage || '',
+		homepage: (pkgJson.homepage as string) || '',
 		hasESM,
 		hasCJS,
 		hasTypes,
@@ -166,10 +153,7 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 			stderr: 'pipe',
 		});
 
-		const timeout = setTimeout(() => {
-			proc.kill();
-		}, 45000);
-
+		const timeout = setTimeout(() => proc.kill(), 45000);
 		const exitCode = await proc.exited;
 		clearTimeout(timeout);
 

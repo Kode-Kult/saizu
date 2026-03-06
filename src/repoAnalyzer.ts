@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+// biome-ignore lint/style/useNodejsImportProtocol: Bun-native path resolution required by user
+import { join } from 'path';
 import { type AnalysisResult, analyzeLocalDirectory, analyzePackage } from './analyzer';
 import { packageCache } from './cache';
 
@@ -38,7 +39,7 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 	const tmpDir = join(tmpBase, `saizu-repo-${id}`);
 
 	try {
-		// 1. Clone repo (shallow clone)
+		// 1. Shallow clone
 		const cloneArgs = ['git', 'clone', '--depth', '1'];
 		if (branch && branch !== 'HEAD') {
 			cloneArgs.push('--single-branch', '--branch', branch);
@@ -56,22 +57,20 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 		clearTimeout(timeoutId);
 
 		if (isTimeout) throw new Error('CLONE_TIMEOUT');
+
 		if (cloneExitCode !== 0) {
 			const stderr = await new Response(cloneProc.stderr).text();
-			const lowerStderr = stderr.toLowerCase();
+			const lower = stderr.toLowerCase();
 			if (stderr.includes('Authentication failed') || stderr.includes('could not read Username')) {
 				throw new Error('PRIVATE_REPO');
 			}
-			if (lowerStderr.includes('not found') || lowerStderr.includes('could not read from remote')) {
-				throw new Error('REPO_NOT_FOUND');
-			}
-			if (lowerStderr.includes('did not match any file') || lowerStderr.includes('remote branch')) {
+			if (lower.includes('did not match any file') || lower.includes('remote branch')) {
 				throw new Error('BRANCH_NOT_FOUND');
 			}
 			throw new Error('REPO_NOT_FOUND');
 		}
 
-		// 2. Get commit hash
+		// 2. Commit hash
 		const hashProc = Bun.spawn(['git', '-C', tmpDir, 'rev-parse', '--short', 'HEAD'], { stdout: 'pipe' });
 		await hashProc.exited;
 		const commit = (await new Response(hashProc.stdout).text()).trim();
@@ -83,21 +82,21 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 
 		const pkgJson = await pkgJsonFile.json();
 
-		// Monorepo root detection
+		// 4. Monorepo root detection
 		if (!pkgJson.files && pkgJson.workspaces) {
-			const workspaces = Array.isArray(pkgJson.workspaces) ? pkgJson.workspaces : (pkgJson.workspaces.packages ?? []);
+			const workspaces = Array.isArray(pkgJson.workspaces)
+				? pkgJson.workspaces
+				: ((pkgJson.workspaces as { packages?: string[] }).packages ?? []);
 			const err = new Error('MONOREPO_ROOT');
-			// biome-ignore lint/suspicious/noExplicitAny: Custom error properties
+			// biome-ignore lint/suspicious/noExplicitAny: Custom error with dynamic properties
 			(err as any).workspaces = workspaces;
 			throw err;
 		}
 
-		const packageName = pkgJson.name || repo;
-
-		// 4. Analyze publishable files (Approccio B Refined)
+		// 5. Analyze using the unified analyzeLocalDirectory (same logic as npm flow)
 		const baseAnalysis = await analyzeLocalDirectory(analysisDir, pkgJson);
 
-		// 5. npmComparison
+		// 6. npmComparison
 		let npmComparison: RepoAnalysisResult['npmComparison'] = {
 			available: false,
 			publishedVersion: null,
@@ -106,6 +105,7 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			verdict: null,
 		};
 
+		const packageName = baseAnalysis.packageName;
 		const npmData = (await fetch(`https://registry.npmjs.org/${packageName}/latest`)
 			.then((r) => (r.ok ? r.json() : null))
 			.catch(() => null)) as { version?: string } | null;
@@ -125,17 +125,10 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			if (currentNpm) {
 				const gzipDelta = baseAnalysis.gzipSize - currentNpm.gzipSize;
 				const installDelta = baseAnalysis.uncompressedSize - currentNpm.uncompressedSize;
-				let verdict: 'heavier' | 'lighter' | 'equal' = 'equal';
-				if (gzipDelta > 1024) verdict = 'heavier';
-				else if (gzipDelta < -1024) verdict = 'lighter';
+				const verdict: 'heavier' | 'lighter' | 'equal' =
+					gzipDelta > 1024 ? 'heavier' : gzipDelta < -1024 ? 'lighter' : 'equal';
 
-				npmComparison = {
-					available: true,
-					publishedVersion,
-					gzipDelta,
-					installDelta,
-					verdict,
-				};
+				npmComparison = { available: true, publishedVersion, gzipDelta, installDelta, verdict };
 			}
 		}
 
@@ -148,9 +141,10 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			commit,
 			npmComparison,
 			...baseAnalysis,
+			// Override repository URL to always point to the GitHub source
+			repository: `https://github.com/${owner}/${repo}`,
 		};
 	} finally {
-		// 6. Guaranteed cleanup
 		try {
 			await Bun.spawn(['rm', '-rf', tmpDir]).exited;
 		} catch (_e) {}

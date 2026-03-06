@@ -9,13 +9,14 @@ const analyzeHandler = async (c: Context) => {
 	const packageParam = c.req.param('package') ?? '';
 	const name = scope ? `${scope}/${packageParam}` : packageParam;
 
+	// Unified cache key format — matches the public API in src/api.ts
 	const cacheKey = `npm:${name}`;
 	const cached = packageCache.get(cacheKey);
 	if (cached) return c.json(cached);
 
 	try {
 		const result = await analyzePackage(name);
-		packageCache.set(cacheKey, result, 30 * 60 * 1000);
+		packageCache.set(cacheKey, result, 30 * 60 * 1000); // 30 min TTL
 		return c.json(result);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);

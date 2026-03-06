@@ -9,6 +9,13 @@ const api = new Hono();
 // Enable CORS for all API routes
 api.use('*', cors({ origin: '*' }));
 
+// Set generic headers
+api.use('*', async (c, next) => {
+	// biome-ignore lint/complexity/useLiteralKeys: Bun.env bracket notation
+	c.header('X-Saizu-Version', Bun.env['SAIZU_VERSION'] || '1.0.0');
+	await next();
+});
+
 // Format internal AnalysisResult to the public API contract
 const formatPackageResult = (data: AnalysisResult | RepoAnalysisResult) => {
 	const calcDlTime = (bytes: number, bps: number) => Math.round((bytes / bps) * 1000);
@@ -47,81 +54,82 @@ const formatPackageResult = (data: AnalysisResult | RepoAnalysisResult) => {
 		};
 	}
 
-	return { source: 'npm', ...base };
+	return { source: 'npm', ...base, cachedAt: new Date().toISOString() };
 };
 
-// Generic error handler following the requested table
+// Generic error handler
 const handleError = (c: Context, error: unknown) => {
 	const msg = error instanceof Error ? error.message : String(error);
 
-	if (msg === 'REPO_NOT_FOUND') {
+	if (msg === 'REPO_NOT_FOUND')
 		return c.json({ error: 'REPO_NOT_FOUND', message: 'The repo does not exist or is private', statusCode: 404 }, 404);
-	}
-	if (msg === 'BRANCH_NOT_FOUND') {
+	if (msg === 'BRANCH_NOT_FOUND')
 		return c.json({ error: 'BRANCH_NOT_FOUND', message: 'The specified branch does not exist', statusCode: 404 }, 404);
-	}
-	if (msg === 'SUBPATH_NOT_FOUND') {
+	if (msg === 'SUBPATH_NOT_FOUND')
 		return c.json(
 			{ error: 'SUBPATH_NOT_FOUND', message: 'The subpath does not exist in the repo', statusCode: 404 },
 			404,
 		);
-	}
-	if (msg === 'NO_PACKAGE_JSON') {
+	if (msg === 'NO_PACKAGE_JSON')
 		return c.json(
 			{ error: 'NO_PACKAGE_JSON', message: 'The repo (or subpath) does not contain package.json', statusCode: 422 },
 			422,
 		);
-	}
 	if (msg === 'MONOREPO_ROOT') {
-		// biome-ignore lint/suspicious/noExplicitAny: Custom error properties
+		// biome-ignore lint/suspicious/noExplicitAny: Custom error with dynamic workspaces property
 		const workspaces = (error as any).workspaces || [];
 		return c.json(
 			{
 				error: 'MONOREPO_ROOT',
-				message: `This is a monorepo root. Please specify a subpath, e.g. ?subpath=${workspaces[0] || 'packages/react'}`,
+				message: `This is a monorepo root. Specify a subpath, e.g. ?subpath=${workspaces[0] ?? 'packages/react'}`,
 				workspaces,
 				statusCode: 422,
 			},
 			422,
 		);
 	}
-	if (msg === 'INVALID_SUBPATH') {
+	if (msg === 'INVALID_SUBPATH')
 		return c.json(
 			{ error: 'INVALID_SUBPATH', message: 'The subpath contains .. or invalid characters', statusCode: 422 },
 			422,
 		);
-	}
-	if (msg === 'CLONE_TIMEOUT') {
+	if (msg === 'CLONE_TIMEOUT')
 		return c.json({ error: 'CLONE_TIMEOUT', message: 'The clone took more than 30 seconds', statusCode: 408 }, 408);
-	}
-	if (msg === 'PRIVATE_REPO') {
+	if (msg === 'PRIVATE_REPO')
 		return c.json(
 			{ error: 'PRIVATE_REPO', message: 'Git responded with an auth error (private repo)', statusCode: 400 },
 			400,
 		);
-	}
 
-	// Fallback for NPM failures
 	const status = msg.includes('not found') ? 404 : 500;
 	return c.json(
-		{
-			error: status === 404 ? 'PACKAGE_NOT_FOUND' : 'ANALYSIS_FAILED',
-			message: msg,
-			statusCode: status,
-		},
+		{ error: status === 404 ? 'PACKAGE_NOT_FOUND' : 'ANALYSIS_FAILED', message: msg, statusCode: status },
 		// biome-ignore lint/suspicious/noExplicitAny: Hono StatusCode type mismatch with dynamic variable
 		status as any,
 	);
 };
 
-// Set generic headers
-api.use('*', async (c, next) => {
-	// biome-ignore lint/complexity/useLiteralKeys: Bun.env bracket notation
-	c.header('X-Saizu-Version', Bun.env['SAIZU_VERSION'] || '1.0.0');
-	await next();
-});
+const getPackageInfo = async (name: string, version?: string) => {
+	const cacheKey = version ? `npm:${name}@${version}` : `npm:${name}`;
+	const cached = packageCache.get(cacheKey);
+	if (cached) return { data: cached, hit: true };
 
-// GET /api/v1 (Documentation)
+	const result = await analyzePackage(name, version);
+	packageCache.set(cacheKey, result, 30 * 60 * 1000);
+	return { data: result, hit: false };
+};
+
+const getRepoInfo = async (owner: string, repo: string, branch?: string, subpath?: string) => {
+	const cacheKey = `github:${owner}/${repo}@${branch ?? 'main'}:${subpath ?? ''}`;
+	const cached = packageCache.get(cacheKey);
+	if (cached) return { data: cached, hit: true };
+
+	const result = await analyzeRepo({ owner, repo, branch, subpath });
+	packageCache.set(cacheKey, result, 5 * 60 * 1000);
+	return { data: result, hit: false };
+};
+
+// GET /api/v1
 api.get('/', (c) => {
 	return c.json({
 		// biome-ignore lint/complexity/useLiteralKeys: Bun.env bracket notation
@@ -154,33 +162,7 @@ api.get('/health', (c) => {
 	});
 });
 
-const getPackageInfo = async (name: string, version?: string) => {
-	const cacheKey = version ? `npm:${name}@${version}` : `npm:${name}`;
-	const cached = packageCache.get(cacheKey);
-
-	if (cached) {
-		return { data: cached, hit: true };
-	}
-
-	const result = await analyzePackage(name, version);
-	packageCache.set(cacheKey, result, 30 * 60 * 1000); // 30 mins TTL
-	return { data: result, hit: false };
-};
-
-const getRepoInfo = async (owner: string, repo: string, branch?: string, subpath?: string) => {
-	const cacheKey = `github:${owner}/${repo}@${branch || 'main'}:${subpath ?? ''}`;
-	const cached = packageCache.get(cacheKey);
-
-	if (cached) {
-		return { data: cached, hit: true };
-	}
-
-	const result = await analyzeRepo({ owner, repo, branch, subpath });
-	packageCache.set(cacheKey, result, 5 * 60 * 1000); // 5 mins for GitHub
-	return { data: result, hit: false };
-};
-
-// GET /api/v1/package/:name
+// GET /api/v1/package/:name  (wildcard handles scoped packages e.g. @tanstack/react-query)
 api.get('/package/*', async (c) => {
 	const path = c.req.path.replace('/api/v1/package/', '');
 	const name = decodeURIComponent(path);
@@ -201,7 +183,7 @@ api.get('/package/*', async (c) => {
 api.get('/repo/:owner/:repo', async (c) => {
 	const owner = c.req.param('owner');
 	const repo = c.req.param('repo');
-	const branch = c.req.query('branch') || 'main'; // User defaults to main
+	const branch = c.req.query('branch') ?? 'main';
 	const subpath = c.req.query('subpath');
 
 	if (!owner || !repo) return c.json({ error: 'MISSING_PARAMS', statusCode: 400 }, 400);
@@ -224,43 +206,39 @@ api.get('/compare', async (c) => {
 		return c.json({ error: 'MISSING_PARAMS', message: 'Both "a" and "b" are required', statusCode: 400 }, 400);
 	}
 
+	const fetchTarget = async (target: string) => {
+		if (target.startsWith('github:')) {
+			const withoutPrefix = target.slice('github:'.length);
+			let ownerRepo = withoutPrefix;
+			let branch = 'main';
+			let subpath: string | undefined;
+
+			const colonIdx = withoutPrefix.indexOf(':');
+			if (colonIdx !== -1) {
+				subpath = withoutPrefix.slice(colonIdx + 1);
+				ownerRepo = withoutPrefix.slice(0, colonIdx);
+			}
+
+			const atIdx = ownerRepo.indexOf('@');
+			if (atIdx !== -1) {
+				branch = ownerRepo.slice(atIdx + 1);
+				ownerRepo = ownerRepo.slice(0, atIdx);
+			}
+
+			const [owner, repoName] = ownerRepo.split('/');
+			if (!owner || !repoName) throw new Error(`Invalid github format: ${target}`);
+			return getRepoInfo(owner, repoName, branch, subpath);
+		}
+
+		const atIdx = target.lastIndexOf('@');
+		if (atIdx > 0) {
+			return getPackageInfo(target.slice(0, atIdx), target.slice(atIdx + 1));
+		}
+		return getPackageInfo(target);
+	};
+
 	try {
-		const fetchTarget = async (target: string) => {
-			if (target.startsWith('github:')) {
-				const withoutPrefix = target.slice('github:'.length);
-				let ownerRepo = withoutPrefix;
-				let branch = 'main';
-				let subpath: string | undefined;
-
-				const colonIdx = withoutPrefix.indexOf(':');
-				if (colonIdx !== -1) {
-					subpath = withoutPrefix.slice(colonIdx + 1);
-					ownerRepo = withoutPrefix.slice(0, colonIdx);
-				}
-
-				const atIdx = ownerRepo.indexOf('@');
-				if (atIdx !== -1) {
-					branch = ownerRepo.slice(atIdx + 1);
-					ownerRepo = ownerRepo.slice(0, atIdx);
-				}
-
-				const [owner, repoName] = ownerRepo.split('/');
-				if (!owner || !repoName) throw new Error(`Invalid github format: ${target}`);
-
-				return getRepoInfo(owner, repoName, branch, subpath);
-			}
-
-			const atIdx = target.lastIndexOf('@');
-			if (atIdx > 0) {
-				const name = target.slice(0, atIdx);
-				const version = target.slice(atIdx + 1);
-				return getPackageInfo(name, version);
-			}
-			return getPackageInfo(target);
-		};
-
 		const [resA, resB] = await Promise.all([fetchTarget(pkgA), fetchTarget(pkgB)]);
-
 		const fmtA = formatPackageResult(resA.data);
 		const fmtB = formatPackageResult(resB.data);
 
