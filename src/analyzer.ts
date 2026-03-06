@@ -1,6 +1,6 @@
+import { spawn } from 'bun';
 // biome-ignore lint/style/useNodejsImportProtocol: Bun-native path resolution required by user
 import { join } from 'path';
-import { spawn } from 'bun';
 
 export interface AnalysisResult {
 	packageName: string;
@@ -195,7 +195,6 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 
 		const pkgJson = await pkgJsonFile.json();
 		return await analyzeLocalDirectory(pkgPath, pkgJson);
-
 	} finally {
 		try {
 			await spawn({ cmd: ['rm', '-rf', tempDir] }).exited;

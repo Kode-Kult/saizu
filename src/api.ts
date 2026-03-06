@@ -48,13 +48,6 @@ api.use('*', async (c, next) => {
 // Format internal AnalysisResult to the public API contract
 const formatPackageResult = (data: AnalysisResult | RepoAnalysisResult) => {
 	const calcDlTime = (bytes: number, bps: number) => Math.round((bytes / bps) * 1000);
-	
-	// bps for different networks
-	const BPS_2G = 32 * 1024; // ~250kbps
-	const BPS_3G = 128 * 1024; // ~1Mbps
-	const BPS_4G = 5 * 1024 * 1024; // ~40Mbps
-	const BPS_WIFI = 25 * 1024 * 1024; // ~200Mbps
-
 	const base = {
 		packageName: data.packageName,
 		packageVersion: data.version,
@@ -64,16 +57,15 @@ const formatPackageResult = (data: AnalysisResult | RepoAnalysisResult) => {
 		installSize: data.uncompressedSize,
 		fileCount: data.fileCount,
 		fileTypes: data.typeBreakdown,
-		dependencies: data.dependencies, // Now an array of strings in current impl, matching docs' dependencyCount usage
+		dependencies: data.dependencies,
 		dependencyCount: data.dependencies.length,
 		hasESM: data.hasESM,
 		hasCJS: data.hasCJS,
 		hasTypes: data.hasTypes,
 		downloadTime: {
-			"2g": calcDlTime(data.gzipSize, BPS_2G),
-			"3g": calcDlTime(data.gzipSize, BPS_3G),
-			"4g": calcDlTime(data.gzipSize, BPS_4G),
-			"wifi": calcDlTime(data.gzipSize, BPS_WIFI),
+			'4g': calcDlTime(data.gzipSize, 7 * 1024 * 1024),
+			wifi: calcDlTime(data.gzipSize, 20 * 1024 * 1024),
+			gbit: calcDlTime(data.gzipSize, 125 * 1024 * 1024),
 		},
 	};
 
@@ -105,19 +97,31 @@ const handleError = (c: Context, error: unknown) => {
 		return c.json({ error: 'BRANCH_NOT_FOUND', message: 'The specified branch does not exist', statusCode: 404 }, 404);
 	}
 	if (msg === 'SUBPATH_NOT_FOUND') {
-		return c.json({ error: 'SUBPATH_NOT_FOUND', message: 'The subpath does not exist in the repo', statusCode: 404 }, 404);
+		return c.json(
+			{ error: 'SUBPATH_NOT_FOUND', message: 'The subpath does not exist in the repo', statusCode: 404 },
+			404,
+		);
 	}
 	if (msg === 'NO_PACKAGE_JSON') {
-		return c.json({ error: 'NO_PACKAGE_JSON', message: 'The repo (or subpath) does not contain package.json', statusCode: 422 }, 422);
+		return c.json(
+			{ error: 'NO_PACKAGE_JSON', message: 'The repo (or subpath) does not contain package.json', statusCode: 422 },
+			422,
+		);
 	}
 	if (msg === 'INVALID_SUBPATH') {
-		return c.json({ error: 'INVALID_SUBPATH', message: 'The subpath contains .. or invalid characters', statusCode: 422 }, 422);
+		return c.json(
+			{ error: 'INVALID_SUBPATH', message: 'The subpath contains .. or invalid characters', statusCode: 422 },
+			422,
+		);
 	}
 	if (msg === 'CLONE_TIMEOUT') {
 		return c.json({ error: 'CLONE_TIMEOUT', message: 'The clone took more than 30 seconds', statusCode: 408 }, 408);
 	}
 	if (msg === 'PRIVATE_REPO') {
-		return c.json({ error: 'PRIVATE_REPO', message: 'Git responded with an auth error (private repo)', statusCode: 400 }, 400);
+		return c.json(
+			{ error: 'PRIVATE_REPO', message: 'Git responded with an auth error (private repo)', statusCode: 400 },
+			400,
+		);
 	}
 
 	// Fallback for NPM failures
@@ -149,13 +153,17 @@ api.get('/', (c) => {
 		endpoints: [
 			{ method: 'GET', path: '/package/:name', description: 'Analyze a published npm package' },
 			{ method: 'GET', path: '/repo/:owner/:repo', description: 'Analyze a public GitHub repo (pre-publish)' },
-			{ method: 'GET', path: '/compare?a=target1&b=target2', description: 'Compare two targets (npm or github:owner/repo)' },
-			{ method: 'GET', path: '/health', description: 'Health check' }
+			{
+				method: 'GET',
+				path: '/compare?a=target1&b=target2',
+				description: 'Compare two targets (npm or github:owner/repo)',
+			},
+			{ method: 'GET', path: '/health', description: 'Health check' },
 		],
 		targetFormats: {
 			npm: 'react, @tanstack/react-query, react@18.2.0',
-			github: 'github:owner/repo, github:owner/repo@branch, github:owner/repo@branch:subpath'
-		}
+			github: 'github:owner/repo, github:owner/repo@branch, github:owner/repo@branch:subpath',
+		},
 	});
 });
 
@@ -165,7 +173,7 @@ api.get('/health', (c) => {
 		status: 'ok',
 		// biome-ignore lint/complexity/useLiteralKeys: Bun.env bracket notation
 		version: Bun.env['SAIZU_VERSION'] || '1.0.0',
-		uptime: performance.now() / 1000, 
+		uptime: process.uptime(),
 	});
 });
 

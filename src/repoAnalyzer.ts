@@ -40,20 +40,15 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 
 	try {
 		// 1. Clone repo (shallow clone)
-		const cloneProc = Bun.spawn(
-			[
-				'git',
-				'clone',
-				'--depth',
-				'1',
-				'--single-branch',
-				'--branch',
-				branch === 'HEAD' ? 'main' : branch, // Handle HEAD alias if needed, though git clone handles most branch names
-				`https://github.com/${owner}/${repo}.git`,
-				tmpDir,
-			],
-			{ stderr: 'pipe' },
-		);
+		const cloneArgs = ['git', 'clone', '--depth', '1'];
+
+		if (branch && branch !== 'HEAD') {
+			cloneArgs.push('--single-branch', '--branch', branch);
+		}
+
+		cloneArgs.push(`https://github.com/${owner}/${repo}.git`, tmpDir);
+
+		const cloneProc = Bun.spawn(cloneArgs, { stderr: 'pipe' });
 
 		let isTimeout = false;
 		const timeoutId = setTimeout(() => {
