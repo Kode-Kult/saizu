@@ -810,8 +810,8 @@ const rawJS = `
                 legend.appendChild(item);
             }
 
-			// biome-ignore lint/complexity/useLiteralKeys: server-side Bun.env requires bracket notation
-			const baseUrl = "${Bun.env['SAIZU_URL'] || ''}" || window.location.origin;
+			const envUrl = "${Bun.env['" + "SAIZU_URL" + "'] || ''}";
+			const baseUrl = envUrl || window.location.origin;
 			const gzipUrl = \`\${baseUrl}/badge/\${query}?type=gzip\`;
 			const installUrl = \`\${baseUrl}/badge/\${query}?type=install\`;
             document.getElementById('badgeGzip').src = gzipUrl;

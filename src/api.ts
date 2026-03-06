@@ -1,6 +1,6 @@
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { analyzePackage, type AnalysisResult } from './analyzer';
+import { type AnalysisResult, analyzePackage } from './analyzer';
 import { packageCache } from './cache';
 
 const api = new Hono();
@@ -14,7 +14,7 @@ const RATE_LIMIT_MAX = 30; // 30 requests per minute
 const RATE_LIMIT_WINDOW = 60 * 1000;
 
 // Utility to extract real client IP
-const getClientIP = (c: any) =>
+const getClientIP = (c: Context) =>
 	c.req.header('x-forwarded-for')?.split(',')[0] || c.req.header('x-real-ip') || '127.0.0.1';
 
 // Rate limit middleware
@@ -78,7 +78,7 @@ const formatPackageResult = (data: AnalysisResult) => {
 };
 
 // Generic error handler to adhere to the requested JSON response shape
-const handleError = (c: any, error: any) => {
+const handleError = (c: Context, error: unknown) => {
 	const msg = error instanceof Error ? error.message : String(error);
 
 	if (msg.includes('not found') || msg.includes('Failed to install')) {

@@ -4,6 +4,7 @@ import publicApiRoutes from './api';
 import apiRoutes from './routes/api';
 import badgeRoutes from './routes/badge';
 import uiRoutes, { deferredCSS } from './routes/ui';
+
 const app = new Hono();
 
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
