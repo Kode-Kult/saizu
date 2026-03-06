@@ -18,11 +18,6 @@ Paste any npm package name and Saizu will instantly tell you everything you need
 
 Need to choose between two packages? The **Compare** mode puts them side by side with a detailed diff of every metric so you can make an informed decision.
 
-## Tech
-
-- **[Bun](https://bun.sh)** — runtime, package manager, and TypeScript executor. No compile step, no `dist` folder.
-- **[Hono](https://hono.dev)** — ultrafast web framework with zero dependencies, built on Web Standard APIs.
-
 ## Why Saizu
 
 Most bundle analyzers require you to install a package locally, run a build, and parse the output. Saizu does none of that — it installs the package in an isolated temp directory, measures it, and discards it. The result is cached in-memory for subsequent requests.
