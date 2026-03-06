@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { type AnalysisResult, analyzePackage } from './analyzer';
+import { type AnalysisResult, analyzePackage, analyzeLocalDirectory } from './analyzer';
 import { packageCache } from './cache';
 
 export interface RepoAnalysisOptions {
@@ -104,9 +104,9 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 		// Root monorepos often lack a name field, we fallback to the repo name
 		const packageName = packageJsonObj.name || repo;
 
-		// Use base analysis pipeline
-		// Pass absolute path directly, Bun handles this safely on Linux
-		const baseAnalysis = await analyzePackage(packageName, analysisDir);
+		// Use base analysis pipeline (Approccio B)
+		// We use analyzeLocalDirectory to measure the source without installing dependencies
+		const baseAnalysis = await analyzeLocalDirectory(analysisDir, packageJsonObj);
 
 		let npmComparison: RepoAnalysisResult['npmComparison'] = {
 			available: false,
