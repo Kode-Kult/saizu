@@ -50,8 +50,7 @@ const formatPackageResult = (data: AnalysisResult) => {
 	const calcDlTime = (bytes: number, bps: number) => Math.round((bytes / bps) * 1000);
 	const dl4g = calcDlTime(data.gzipSize, 7 * 1024 * 1024);
 	const dlWifi = calcDlTime(data.gzipSize, 20 * 1024 * 1024);
-	const dl3g = calcDlTime(data.gzipSize, 1.5 * 1024 * 1024);
-	const dl2g = calcDlTime(data.gzipSize, 50 * 1024);
+	const dlGbit = calcDlTime(data.gzipSize, 125 * 1024 * 1024);
 
 	return {
 		name: data.packageName,
@@ -69,10 +68,9 @@ const formatPackageResult = (data: AnalysisResult) => {
 		hasCJS: data.hasCJS,
 		hasTypes: data.hasTypes,
 		downloadTime: {
-			'2g': dl2g,
-			'3g': dl3g,
 			'4g': dl4g,
 			wifi: dlWifi,
+			gbit: dlGbit,
 		},
 	};
 };
