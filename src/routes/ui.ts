@@ -661,20 +661,13 @@ const rawJS = `
             document.getElementById('loader').style.display = show ? 'block' : 'none';
         }
         function classifyInput(raw) {
-            let trimmed = raw.trim();
-            // Full GitHub URL: https://github.com/owner/repo or github.com/owner/repo
-            const fullUrl = trimmed.match(/(?:https?:\/\/)?github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)(?:\/tree\/([^?\s]+))?(?:\?branch=([^&\s]+))?/);
-            if (fullUrl) {
-                const owner = fullUrl[1], repo = fullUrl[2];
-                const branch = fullUrl[3] || fullUrl[4] || null;
-                return { type: 'github', value: owner + '/' + repo, branch };
-            }
-            // owner/repo/tree/branch shorthand
-            const treeMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/tree\/([^\s]+)$/);
+            const trimmed = raw.trim();
+            // owner/repo/tree/branch
+            const treeMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)[/]([a-zA-Z0-9_.-]+)[/]tree[/]([^\s]+)$/);
             if (treeMatch) return { type: 'github', value: treeMatch[1] + '/' + treeMatch[2], branch: treeMatch[3] };
-            // plain owner/repo
-            const isGithub = /^[a-zA-Z0-9_.-][a-zA-Z0-9_.-]*\/[a-zA-Z0-9_.-][a-zA-Z0-9_.-]*$/.test(trimmed) && !trimmed.startsWith('@');
-            if (isGithub) return { type: 'github', value: trimmed, branch: null };
+            // plain owner/repo (not @scoped npm)
+            const repoMatch = !trimmed.startsWith('@') && trimmed.match(/^([a-zA-Z0-9_.-]+)[/]([a-zA-Z0-9_.-]+)$/);
+            if (repoMatch) return { type: 'github', value: trimmed, branch: null };
             return { type: 'npm', value: trimmed };
         }
 
@@ -709,10 +702,7 @@ const rawJS = `
                     const [owner, repo] = classified.value.split('/');
                     url = \`/api/v1/repo/\${owner}/\${repo}\`;
                     const params = new URLSearchParams(window.location.search);
-                    const qp = new URLSearchParams();
-                    if (classified.branch) qp.set('branch', classified.branch);
-                    if (params.has('subpath')) qp.set('subpath', params.get('subpath'));
-                    if ([...qp].length) url += '?' + qp.toString();
+                    if (params.has('subpath')) url += '?subpath=' + params.get('subpath');
                 } else {
                     url = \`/api/v1/package/\${classified.value}\`;
                 }
@@ -981,7 +971,6 @@ const rawJS = `
                     if (c.type === 'github') {
                         const [owner, repo] = c.value.split('/');
                         url = \`/api/v1/repo/\${owner}/\${repo}\`;
-                        if (c.branch) url += '?branch=' + encodeURIComponent(c.branch);
                     } else {
                         url = \`/api/v1/package/\${c.value}\`;
                     }
@@ -1263,10 +1252,7 @@ function buildHTML(starCount: number) {
             </div>
 
             <!-- Usage hint -->
-            <p id="usageHint" style="font-size:0.82rem; color:#555; margin:-20px 0 28px; line-height:1.8">
-                npm: <code style="color:var(--pink);font-family:var(--font-mono)">react</code> &nbsp;·&nbsp; <code style="color:var(--pink);font-family:var(--font-mono)">@tanstack/react-query</code> &nbsp;&nbsp;|&nbsp;&nbsp;
-                GitHub: <code style="color:var(--pink);font-family:var(--font-mono)">facebook/react</code> &nbsp;·&nbsp; <code style="color:var(--pink);font-family:var(--font-mono)">tanstack/query/tree/main</code> &nbsp;·&nbsp; <code style="color:var(--pink);font-family:var(--font-mono)">tanstack/query/tree/beta</code>
-            </p>
+            <p id="usageHint" style="font-size:0.82rem; color:#666; margin:-20px 0 28px; line-height:1.6">Search npm packages like <span style="color:var(--pink)">react</span> or <span style="color:var(--pink)">@tanstack/react-query</span>, or GitHub repos like <span style="color:var(--pink)">facebook/react</span> or <span style="color:var(--pink)">tanstack/query/tree/beta</span> for a specific branch.</p>
             <!-- ANALYZE MODE -->
             <div id="analyzeMode">
                 <div class="search-row">
