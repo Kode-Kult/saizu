@@ -1,5 +1,6 @@
 # Use the official Bun image
-FROM oven/bun:latest AS base
+FROM oven/bun:latest
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Install dependencies
