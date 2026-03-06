@@ -13,7 +13,8 @@ const badgeHandler = async (c: Context) => {
 	const name = scope ? `${scope}/${packageParam}` : packageParam;
 
 	// Detect GitHub repo format: "owner/repo" (no @ or leading dot, no npm scope)
-	const isGitHub = scope && !scope.startsWith('@') && /^[a-zA-Z0-9_.-]+$/.test(scope) && /^[a-zA-Z0-9_.-]+$/.test(packageParam);
+	const isGitHub =
+		scope && !scope.startsWith('@') && /^[a-zA-Z0-9_.-]+$/.test(scope) && /^[a-zA-Z0-9_.-]+$/.test(packageParam);
 
 	const cacheKey = isGitHub ? `github:${name}@undefined:` : `npm:${name}`;
 	let result = packageCache.get(cacheKey);
