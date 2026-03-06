@@ -11,7 +11,7 @@ api.use('*', cors({ origin: '*' }));
 
 // Rate limiter state
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_MAX = 30; // 30 requests per minute
+const RATE_LIMIT_MAX = 60; // Increased for better testing
 const RATE_LIMIT_WINDOW = 60 * 1000;
 
 // Utility to extract real client IP
@@ -47,31 +47,33 @@ api.use('*', async (c, next) => {
 
 // Format internal AnalysisResult to the public API contract
 const formatPackageResult = (data: AnalysisResult | RepoAnalysisResult) => {
-	// Standardize download times (in milliseconds)
 	const calcDlTime = (bytes: number, bps: number) => Math.round((bytes / bps) * 1000);
-	const dl4g = calcDlTime(data.gzipSize, 7 * 1024 * 1024);
-	const dlWifi = calcDlTime(data.gzipSize, 20 * 1024 * 1024);
-	const dlGbit = calcDlTime(data.gzipSize, 125 * 1024 * 1024);
+	
+	// bps for different networks
+	const BPS_2G = 32 * 1024; // ~250kbps
+	const BPS_3G = 128 * 1024; // ~1Mbps
+	const BPS_4G = 5 * 1024 * 1024; // ~40Mbps
+	const BPS_WIFI = 25 * 1024 * 1024; // ~200Mbps
 
 	const base = {
-		name: data.packageName,
-		version: data.version,
-		description: data.description || '',
-		license: data.license || 'Unknown',
-		author: data.packageName.split('/')[0]?.replace('@', '') || 'unknown',
+		packageName: data.packageName,
+		packageVersion: data.version,
+		description: data.description,
+		license: data.license,
 		gzipSize: data.gzipSize,
 		installSize: data.uncompressedSize,
 		fileCount: data.fileCount,
-		fileTypes: data.typeBreakdown || {},
-		dependencies: Array.isArray(data.dependencies) ? data.dependencies : [],
-		dependencyCount: Array.isArray(data.dependencies) ? data.dependencies.length : 0,
+		fileTypes: data.typeBreakdown,
+		dependencies: data.dependencies, // Now an array of strings in current impl, matching docs' dependencyCount usage
+		dependencyCount: data.dependencies.length,
 		hasESM: data.hasESM,
 		hasCJS: data.hasCJS,
 		hasTypes: data.hasTypes,
 		downloadTime: {
-			'4g': dl4g,
-			wifi: dlWifi,
-			gbit: dlGbit,
+			"2g": calcDlTime(data.gzipSize, BPS_2G),
+			"3g": calcDlTime(data.gzipSize, BPS_3G),
+			"4g": calcDlTime(data.gzipSize, BPS_4G),
+			"wifi": calcDlTime(data.gzipSize, BPS_WIFI),
 		},
 	};
 
@@ -92,47 +94,48 @@ const formatPackageResult = (data: AnalysisResult | RepoAnalysisResult) => {
 	return { source: 'npm', ...base };
 };
 
-// Generic error handler to adhere to the requested JSON response shape
+// Generic error handler following the requested table
 const handleError = (c: Context, error: unknown) => {
 	const msg = error instanceof Error ? error.message : String(error);
 
-	if (msg === 'REPO_NOT_FOUND' || msg === 'BRANCH_NOT_FOUND' || msg === 'SUBPATH_NOT_FOUND') {
-		return c.json({ error: msg, message: msg, statusCode: 404 }, 404);
+	if (msg === 'REPO_NOT_FOUND') {
+		return c.json({ error: 'REPO_NOT_FOUND', message: 'The repo does not exist or is private', statusCode: 404 }, 404);
 	}
-	if (msg === 'NO_PACKAGE_JSON' || msg === 'INVALID_SUBPATH') {
-		return c.json({ error: msg, message: msg, statusCode: 422 }, 422);
+	if (msg === 'BRANCH_NOT_FOUND') {
+		return c.json({ error: 'BRANCH_NOT_FOUND', message: 'The specified branch does not exist', statusCode: 404 }, 404);
+	}
+	if (msg === 'SUBPATH_NOT_FOUND') {
+		return c.json({ error: 'SUBPATH_NOT_FOUND', message: 'The subpath does not exist in the repo', statusCode: 404 }, 404);
+	}
+	if (msg === 'NO_PACKAGE_JSON') {
+		return c.json({ error: 'NO_PACKAGE_JSON', message: 'The repo (or subpath) does not contain package.json', statusCode: 422 }, 422);
+	}
+	if (msg === 'INVALID_SUBPATH') {
+		return c.json({ error: 'INVALID_SUBPATH', message: 'The subpath contains .. or invalid characters', statusCode: 422 }, 422);
 	}
 	if (msg === 'CLONE_TIMEOUT') {
-		return c.json({ error: msg, message: msg, statusCode: 408 }, 408);
+		return c.json({ error: 'CLONE_TIMEOUT', message: 'The clone took more than 30 seconds', statusCode: 408 }, 408);
 	}
 	if (msg === 'PRIVATE_REPO') {
-		return c.json({ error: msg, message: msg, statusCode: 400 }, 400);
+		return c.json({ error: 'PRIVATE_REPO', message: 'Git responded with an auth error (private repo)', statusCode: 400 }, 400);
 	}
 
-	if (msg.includes('not found') || msg.includes('Failed to install')) {
-		return c.json(
-			{
-				error: 'PACKAGE_NOT_FOUND',
-				message: msg,
-				statusCode: 404,
-			},
-			404,
-		);
-	}
-
+	// Fallback for NPM failures
+	const status = msg.includes('not found') ? 404 : 500;
 	return c.json(
 		{
-			error: 'ANALYSIS_FAILED',
+			error: status === 404 ? 'PACKAGE_NOT_FOUND' : 'ANALYSIS_FAILED',
 			message: msg,
-			statusCode: 500,
+			statusCode: status,
 		},
-		500,
+		// biome-ignore lint/suspicious/noExplicitAny: Hono StatusCode type mismatch with dynamic variable
+		status as any,
 	);
 };
 
 // Set generic headers
 api.use('*', async (c, next) => {
-	// biome-ignore lint/complexity/useLiteralKeys: TS strict context
+	// biome-ignore lint/complexity/useLiteralKeys: Bun.env bracket notation
 	c.header('X-Saizu-Version', Bun.env['SAIZU_VERSION'] || '1.0.0');
 	await next();
 });
@@ -140,23 +143,19 @@ api.use('*', async (c, next) => {
 // GET /api/v1 (Documentation)
 api.get('/', (c) => {
 	return c.json({
-		// biome-ignore lint/complexity/useLiteralKeys: TS strict context
+		// biome-ignore lint/complexity/useLiteralKeys: Bun.env bracket notation
 		version: Bun.env['SAIZU_VERSION'] || '1.0.0',
 		baseUrl: 'https://saizu.dev/api/v1',
 		endpoints: [
-			{ method: 'GET', path: '/package/:name', description: 'Analyze a single npm package' },
+			{ method: 'GET', path: '/package/:name', description: 'Analyze a published npm package' },
 			{ method: 'GET', path: '/repo/:owner/:repo', description: 'Analyze a public GitHub repo (pre-publish)' },
-			{
-				method: 'GET',
-				path: '/compare?a=target1&b=target2',
-				description: 'Compare two targets (npm or github:owner/repo)',
-			},
-			{ method: 'GET', path: '/health', description: 'Health check' },
+			{ method: 'GET', path: '/compare?a=target1&b=target2', description: 'Compare two targets (npm or github:owner/repo)' },
+			{ method: 'GET', path: '/health', description: 'Health check' }
 		],
 		targetFormats: {
 			npm: 'react, @tanstack/react-query, react@18.2.0',
-			github: 'github:owner/repo, github:owner/repo@branch, github:owner/repo@branch:subpath',
-		},
+			github: 'github:owner/repo, github:owner/repo@branch, github:owner/repo@branch:subpath'
+		}
 	});
 });
 
@@ -164,9 +163,9 @@ api.get('/', (c) => {
 api.get('/health', (c) => {
 	return c.json({
 		status: 'ok',
-		// biome-ignore lint/complexity/useLiteralKeys: TS strict context
+		// biome-ignore lint/complexity/useLiteralKeys: Bun.env bracket notation
 		version: Bun.env['SAIZU_VERSION'] || '1.0.0',
-		uptime: process.uptime(),
+		uptime: performance.now() / 1000, 
 	});
 });
 
@@ -179,7 +178,7 @@ const getPackageInfo = async (name: string, version?: string) => {
 	}
 
 	const result = await analyzePackage(name, version);
-	packageCache.set(cacheKey, result);
+	packageCache.set(cacheKey, result, 30 * 60 * 1000); // 30 mins
 	return { data: result, hit: false };
 };
 
@@ -192,35 +191,21 @@ const getRepoInfo = async (owner: string, repo: string, branch?: string, subpath
 	}
 
 	const result = await analyzeRepo({ owner, repo, branch, subpath });
-	packageCache.set(cacheKey, result, 5 * 60 * 1000);
+	packageCache.set(cacheKey, result, 5 * 60 * 1000); // 5 mins for GitHub
 	return { data: result, hit: false };
 };
 
-// GET /api/v1/package/:name (using wildcard to support scoped packages like @scope/name)
+// GET /api/v1/package/:name
 api.get('/package/*', async (c) => {
-	// Remove '/package/' from the start of the path (which is the matched wildcard part)
 	const path = c.req.path.replace('/api/v1/package/', '');
 	const name = decodeURIComponent(path);
-
-	if (!name) {
-		return c.json(
-			{
-				error: 'MISSING_PARAMS',
-				message: 'Package name is required',
-				statusCode: 400,
-			},
-			400,
-		);
-	}
+	if (!name) return c.json({ error: 'MISSING_PARAMS', statusCode: 400 }, 400);
 
 	const version = c.req.query('version');
 
 	try {
 		const { data, hit } = await getPackageInfo(name, version);
-
 		c.header('X-Cache', hit ? 'HIT' : 'MISS');
-		c.header('Cache-Control', 'public, max-age=1800'); // 30 minutes for NPM
-
 		return c.json(formatPackageResult(data));
 	} catch (error) {
 		return handleError(c, error);
@@ -231,26 +216,14 @@ api.get('/package/*', async (c) => {
 api.get('/repo/:owner/:repo', async (c) => {
 	const owner = c.req.param('owner');
 	const repo = c.req.param('repo');
-	const branch = c.req.query('branch') || 'main';
+	const branch = c.req.query('branch') || 'main'; // User defaults to main
 	const subpath = c.req.query('subpath');
 
-	if (!owner || !repo) {
-		return c.json(
-			{
-				error: 'MISSING_PARAMS',
-				message: 'Owner and repo are required',
-				statusCode: 400,
-			},
-			400,
-		);
-	}
+	if (!owner || !repo) return c.json({ error: 'MISSING_PARAMS', statusCode: 400 }, 400);
 
 	try {
 		const { data, hit } = await getRepoInfo(owner, repo, branch, subpath);
-
 		c.header('X-Cache', hit ? 'HIT' : 'MISS');
-		c.header('Cache-Control', 'public, max-age=300'); // 5 minutes for GitHub
-
 		return c.json(formatPackageResult(data));
 	} catch (error) {
 		return handleError(c, error);
@@ -263,14 +236,7 @@ api.get('/compare', async (c) => {
 	const pkgB = c.req.query('b');
 
 	if (!pkgA || !pkgB) {
-		return c.json(
-			{
-				error: 'MISSING_PARAMS',
-				message: 'Both "a" and "b" query parameters are required for comparison',
-				statusCode: 400,
-			},
-			400,
-		);
+		return c.json({ error: 'MISSING_PARAMS', message: 'Both "a" and "b" are required', statusCode: 400 }, 400);
 	}
 
 	try {
@@ -309,9 +275,6 @@ api.get('/compare', async (c) => {
 		};
 
 		const [resA, resB] = await Promise.all([fetchTarget(pkgA), fetchTarget(pkgB)]);
-
-		c.header('X-Cache', resA.hit && resB.hit ? 'HIT' : 'MISS');
-		c.header('Cache-Control', 'public, max-age=300');
 
 		const fmtA = formatPackageResult(resA.data);
 		const fmtB = formatPackageResult(resB.data);

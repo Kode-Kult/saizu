@@ -1,6 +1,5 @@
-import { existsSync, statSync } from 'node:fs';
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+// biome-ignore lint/style/useNodejsImportProtocol: Bun-native path resolution required by user
+import { join } from 'path';
 import { spawn } from 'bun';
 
 export interface AnalysisResult {
@@ -20,7 +19,11 @@ export interface AnalysisResult {
 	typeBreakdown: Record<string, number>;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: package.json dynamic structure
+/**
+ * Core measurement logic for a directory (Approccio B).
+ * Respects the 'files' field in package.json and excludes common noise.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: package.json structure
 export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Promise<AnalysisResult> {
 	let totalUncompressedSize = 0;
 	let totalGzipSize = 0;
@@ -61,66 +64,58 @@ export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Prom
 		} catch (_e) {}
 	};
 
-	// Determine which files to include (Approccio B)
-	// If 'files' is present in package.json, we only include those
-	// Always include package.json, README, LICENSE, CHANGELOG
+	// Deterministic inclusion list based on 'files' field
+	const includedPatterns: string[] = Array.isArray(pkgJson.files) ? pkgJson.files : ['**/*'];
 	const includeList = new Set<string>();
-	if (Array.isArray(pkgJson.files)) {
-		for (const pattern of pkgJson.files) {
-			const glob = new Bun.Glob(pattern);
-			for (const file of glob.scanSync({ cwd: pkgPath, onlyFiles: true })) {
-				includeList.add(join(pkgPath, file));
-			}
-			// Also include directories mentioned in 'files'
-			for (const dir of glob.scanSync({ cwd: pkgPath, onlyFiles: false })) {
-				const fullDir = join(pkgPath, dir);
-				if (statSync(fullDir).isDirectory()) {
-					const subFiles = await readdir(fullDir, { recursive: true });
-					for (const sub of subFiles) {
-						includeList.add(join(fullDir, sub));
-					}
-				}
-			}
-		}
-		// Mandatory npm files
-		const mandatory = new Bun.Glob('{package.json,README*,LICENSE*,CHANGELOG*}');
-		for (const file of mandatory.scanSync({ cwd: pkgPath, onlyFiles: true })) {
+
+	for (const pattern of includedPatterns) {
+		const glob = new Bun.Glob(pattern);
+		// scan is async and returns an iterator
+		for await (const file of glob.scan({ cwd: pkgPath, onlyFiles: true })) {
 			includeList.add(join(pkgPath, file));
 		}
 	}
 
-	const allFiles = await readdir(pkgPath, { recursive: true });
-	for (const relativePath of allFiles) {
-		const absolutePath = join(pkgPath, relativePath);
-		
-		// Skip if Approccio B is active and file not in include list
-		if (includeList.size > 0 && !includeList.has(absolutePath)) continue;
+	// Always include mandatory files as per npm docs
+	const mandatoryGlob = new Bun.Glob('{package.json,README*,LICENSE*,LICENCE*,CHANGELOG*}');
+	for await (const file of mandatoryGlob.scan({ cwd: pkgPath, onlyFiles: true })) {
+		includeList.add(join(pkgPath, file));
+	}
 
-		// Generic ignores
+	// Scan all files in directory and filter
+	const allFilesGlob = new Bun.Glob('**/*');
+	for await (const relativePath of allFilesGlob.scan({ cwd: pkgPath, onlyFiles: true })) {
+		const absolutePath = join(pkgPath, relativePath);
+
+		// Implementation of Approccio B: if files field exists, only measure included files
+		if (Array.isArray(pkgJson.files) && !includeList.has(absolutePath)) {
+			continue;
+		}
+
+		// Hard exclusions (npm defaults)
 		if (
 			relativePath.includes('node_modules') ||
-			relativePath.includes('.git/') ||
+			relativePath.startsWith('.git/') ||
 			relativePath === '.git' ||
 			relativePath.includes('.bun/') ||
 			relativePath.endsWith('bun.lock') ||
 			relativePath.endsWith('package-lock.json') ||
-			relativePath.endsWith('yarn.lock')
+			relativePath.endsWith('yarn.lock') ||
+			relativePath.includes('__tests__/') ||
+			relativePath.includes('test/') ||
+			relativePath.includes('tests/') ||
+			/\.(test|spec)\./.test(relativePath)
 		) {
 			continue;
 		}
 
-		try {
-			const stats = statSync(absolutePath);
-			if (stats.isFile()) {
-				await measureFile(absolutePath);
-			}
-		} catch (_e) {}
+		await measureFile(absolutePath);
 	}
 
 	const repo = (typeof pkgJson.repository === 'string' ? pkgJson.repository : pkgJson.repository?.url) || '';
 	const hasESM = !!(pkgJson.module || pkgJson.exports || pkgJson.type === 'module');
 	const hasCJS = !!(pkgJson.main || !pkgJson.type || pkgJson.type === 'commonjs');
-	const hasTypes = !!(pkgJson.types || pkgJson.typings || existsSync(join(pkgPath, 'index.d.ts')));
+	const hasTypes = !!(pkgJson.types || pkgJson.typings || (await Bun.file(join(pkgPath, 'index.d.ts')).exists()));
 
 	const allDeps = [
 		...Object.keys(pkgJson.dependencies || {}),
@@ -146,7 +141,7 @@ export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Prom
 
 	return {
 		packageName: pkgJson.name,
-		version: pkgJson.version,
+		version: pkgJson.version || '0.0.0',
 		license,
 		uncompressedSize: totalUncompressedSize,
 		gzipSize: totalGzipSize,
@@ -164,8 +159,8 @@ export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Prom
 
 export async function analyzePackage(name: string, version?: string): Promise<AnalysisResult> {
 	const id = crypto.randomUUID();
-	// biome-ignore lint/complexity/useLiteralKeys: TS index signature requires bracket notation
-	const tmpBase = process.env['TMP'] || process.env['TEMP'] || '/tmp';
+	// biome-ignore lint/complexity/useLiteralKeys: Bun.env bracket notation
+	const tmpBase = Bun.env['TMP'] || Bun.env['TEMP'] || '/tmp';
 	const tempDir = join(tmpBase, `pkgsize-${id}`);
 	const fullPkgName = version ? `${name}@${version}` : name;
 
@@ -193,16 +188,17 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 		}
 
 		const pkgPath = join(tempDir, 'node_modules', ...name.split(/[/\\]/));
-		if (!existsSync(join(pkgPath, 'package.json'))) {
+		const pkgJsonFile = Bun.file(join(pkgPath, 'package.json'));
+		if (!(await pkgJsonFile.exists())) {
 			throw new Error(`Package metadata for "${name}" not found.`);
 		}
 
-		const pkgJson = await Bun.file(join(pkgPath, 'package.json')).json();
+		const pkgJson = await pkgJsonFile.json();
 		return await analyzeLocalDirectory(pkgPath, pkgJson);
 
 	} finally {
 		try {
-			spawn({ cmd: ['rm', '-rf', tempDir], stdout: 'ignore', stderr: 'ignore' });
+			await spawn({ cmd: ['rm', '-rf', tempDir] }).exited;
 		} catch (_e) {}
 	}
 }

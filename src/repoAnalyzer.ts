@@ -1,5 +1,6 @@
-import { join } from 'node:path';
-import { type AnalysisResult, analyzePackage, analyzeLocalDirectory } from './analyzer';
+// biome-ignore lint/style/useNodejsImportProtocol: Bun-native path resolution required by user
+import { join } from 'path';
+import { type AnalysisResult, analyzeLocalDirectory } from './analyzer';
 import { packageCache } from './cache';
 
 export interface RepoAnalysisOptions {
@@ -32,12 +33,13 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 		throw new Error('INVALID_SUBPATH');
 	}
 
-	// biome-ignore lint/complexity/useLiteralKeys: User requirement: Bun.env bracket notation
+	// biome-ignore lint/complexity/useLiteralKeys: Bun.env bracket notation
 	const tmpBase = Bun.env['TMP'] || Bun.env['TEMP'] || '/tmp';
 	const id = crypto.randomUUID();
 	const tmpDir = join(tmpBase, `saizu-repo-${id}`);
 
 	try {
+		// 1. Clone repo (shallow clone)
 		const cloneProc = Bun.spawn(
 			[
 				'git',
@@ -46,7 +48,7 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 				'1',
 				'--single-branch',
 				'--branch',
-				branch,
+				branch === 'HEAD' ? 'main' : branch, // Handle HEAD alias if needed, though git clone handles most branch names
 				`https://github.com/${owner}/${repo}.git`,
 				tmpDir,
 			],
@@ -62,9 +64,7 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 		const cloneExitCode = await cloneProc.exited;
 		clearTimeout(timeoutId);
 
-		if (isTimeout) {
-			throw new Error('CLONE_TIMEOUT');
-		}
+		if (isTimeout) throw new Error('CLONE_TIMEOUT');
 
 		if (cloneExitCode !== 0) {
 			const stderr = await new Response(cloneProc.stderr).text();
@@ -82,32 +82,29 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			) {
 				throw new Error('BRANCH_NOT_FOUND');
 			}
-			// Fallback generic error
 			throw new Error('REPO_NOT_FOUND');
 		}
 
+		// 2. Get commit hash
 		const hashProc = Bun.spawn(['git', '-C', tmpDir, 'rev-parse', '--short', 'HEAD'], { stdout: 'pipe' });
 		await hashProc.exited;
 		const commit = (await new Response(hashProc.stdout).text()).trim();
 
+		// 3. Resolve analysis directory
 		const analysisDir = subpath ? join(tmpDir, subpath) : tmpDir;
-		const pkgJsonPath = join(analysisDir, 'package.json');
+		const pkgJsonFile = Bun.file(join(analysisDir, 'package.json'));
 
-		const packageJsonObj = await Bun.file(pkgJsonPath)
-			.json()
-			.catch(() => null);
-
-		if (!packageJsonObj) {
+		if (!(await pkgJsonFile.exists())) {
 			throw new Error('NO_PACKAGE_JSON');
 		}
 
-		// Root monorepos often lack a name field, we fallback to the repo name
-		const packageName = packageJsonObj.name || repo;
+		const pkgJson = await pkgJsonFile.json();
+		const packageName = pkgJson.name || repo;
 
-		// Use base analysis pipeline (Approccio B)
-		// We use analyzeLocalDirectory to measure the source without installing dependencies
-		const baseAnalysis = await analyzeLocalDirectory(analysisDir, packageJsonObj);
+		// 4. Analyze local directory (Approccio B)
+		const baseAnalysis = await analyzeLocalDirectory(analysisDir, pkgJson);
 
+		// 5. npmComparison
 		let npmComparison: RepoAnalysisResult['npmComparison'] = {
 			available: false,
 			publishedVersion: null,
@@ -126,9 +123,11 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			let currentNpm = packageCache.get(cacheKey) as AnalysisResult | null;
 
 			if (!currentNpm) {
+				// We still use analyzePackage for NPM comparison as it handles fetching from registry
+				const { analyzePackage } = await import('./analyzer');
 				currentNpm = await analyzePackage(packageName, publishedVersion).catch(() => null);
 				if (currentNpm) {
-					packageCache.set(cacheKey, currentNpm);
+					packageCache.set(cacheKey, currentNpm, 30 * 60 * 1000);
 				}
 			}
 
@@ -160,7 +159,7 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 			...baseAnalysis,
 		};
 	} finally {
-		// Guaranteed cleanup
+		// 6. Guaranteed cleanup
 		try {
 			await Bun.spawn(['rm', '-rf', tmpDir]).exited;
 		} catch (_e) {}
