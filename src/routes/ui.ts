@@ -662,7 +662,7 @@ const rawJS = `
         }
         function classifyInput(raw) {
             const trimmed = raw.trim();
-            const isGithub = /^[a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_.-]+$/.test(trimmed);
+            const isGithub = /^[a-zA-Z0-9_.-][a-zA-Z0-9_.-]*\\/[a-zA-Z0-9_.-][a-zA-Z0-9_./-]*$/.test(trimmed) && !trimmed.startsWith('@');
             if (isGithub) return { type: 'github', value: trimmed };
             return { type: 'npm', value: trimmed };
         }
