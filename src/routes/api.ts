@@ -6,7 +6,7 @@ const api = new Hono();
 
 const analyzeHandler = async (c: Context) => {
 	const scope = c.req.param('scope');
-	const packageParam = c.req.param('package');
+	const packageParam = c.req.param('package') ?? '';
 	const name = scope ? `${scope}/${packageParam}` : packageParam;
 
 	const cached = packageCache.get(name);

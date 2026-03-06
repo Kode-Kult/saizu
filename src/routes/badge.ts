@@ -7,7 +7,7 @@ const badge = new Hono();
 
 const badgeHandler = async (c: Context) => {
 	const scope = c.req.param('scope');
-	const packageParam = c.req.param('package');
+	const packageParam = c.req.param('package') ?? '';
 	const type = (c.req.query('type') || 'gzip') as BadgeType;
 	const name = scope ? `${scope}/${packageParam}` : packageParam;
 
