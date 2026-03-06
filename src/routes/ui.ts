@@ -1019,8 +1019,9 @@ const rawJS = `
 
         function populateCmpCard(side, data, other, isWinner) {
             const s = side; // 'A' or 'B'
-            document.getElementById('cmpName' + s).textContent = data.packageName;
-            document.getElementById('cmpVersion' + s).textContent = 'v' + (data.packageVersion || data.version);
+            const cardName = data.source === 'github' && data.branch ? data.packageName + ' (' + data.branch + ')' : data.packageName;
+            document.getElementById('cmpName' + s).textContent = cardName;
+            document.getElementById('cmpVersion' + s).textContent = data.source === 'github' ? (data.commit || '') : ('v' + (data.packageVersion || data.version));
             document.getElementById('cmpDesc' + s).textContent = data.description || '';
 
             const statsEl = document.getElementById('cmpStats' + s);

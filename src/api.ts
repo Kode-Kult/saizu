@@ -122,7 +122,8 @@ const getPackageInfo = async (name: string, version?: string) => {
 };
 
 const getRepoInfo = async (owner: string, repo: string, branch?: string, subpath?: string) => {
-	const cacheKey = `github:${owner}/${repo}@${branch ?? 'main'}:${subpath ?? ''}`;
+	// Use 'default' when branch is unspecified so different branches get different cache keys
+	const cacheKey = `github:${owner}/${repo}@${branch ?? 'default'}:${subpath ?? ''}`;
 	const cached = packageCache.get(cacheKey);
 	if (cached) return { data: cached, hit: true };
 
@@ -212,7 +213,7 @@ api.get('/compare', async (c) => {
 		if (target.startsWith('github:')) {
 			const withoutPrefix = target.slice('github:'.length);
 			let ownerRepo = withoutPrefix;
-			let branch = 'main';
+			let branch: string | undefined;
 			let subpath: string | undefined;
 
 			const colonIdx = withoutPrefix.indexOf(':');
