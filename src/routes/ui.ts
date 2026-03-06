@@ -994,8 +994,8 @@ const rawJS = `
             document.getElementById('compareResults').style.display = 'block';
 
             // Titles
-            document.getElementById('cmpTitleA').textContent = a.packageName;
-            document.getElementById('cmpTitleB').textContent = b.packageName;
+            document.getElementById('cmpTitleA').textContent = qA;
+            document.getElementById('cmpTitleB').textContent = qB;
 
             // Determine gzip winner (lower = better)
             const gzipWinnerA = a.gzipSize <= b.gzipSize;
@@ -1071,8 +1071,8 @@ const rawJS = `
         }
 
         function renderH2H(a, b) {
-            const shortA = a.packageName.split('/').pop();
-            const shortB = b.packageName.split('/').pop();
+            const shortA = a.source === 'github' ? (a.packageName + (a.branch ? ' (' + a.branch + ')' : '')) : a.packageName;
+            const shortB = b.source === 'github' ? (b.packageName + (b.branch ? ' (' + b.branch + ')' : '')) : b.packageName;
 
             // Labels
             ['h2hLabelA','h2hLabelA2','h2hLabelA3'].forEach(id => document.getElementById(id).textContent = shortA);
@@ -1247,6 +1247,11 @@ function buildHTML(starCount: number) {
                 </button>
             </div>
 
+            <!-- Usage hint -->
+            <p id="usageHint" style="font-size:0.82rem; color:#555; margin:-20px 0 28px; line-height:1.6">
+                Search by <b style="color:#888">npm package</b> (e.g. <code style="color:var(--pink)">react</code>, <code style="color:var(--pink)">@tanstack/react-query</code>) or <b style="color:#888">GitHub repo</b> (e.g. <code style="color:var(--pink)">facebook/react</code>).
+                Add <code style="color:var(--pink)">?branch=dev</code> for a specific branch or <code style="color:var(--pink)">?subpath=packages/react-query</code> for monorepos.
+            </p>
             <!-- ANALYZE MODE -->
             <div id="analyzeMode">
                 <div class="search-row">
