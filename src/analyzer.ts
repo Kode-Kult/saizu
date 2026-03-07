@@ -30,7 +30,7 @@ function isExcluded(relativePath: string): boolean {
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: package.json structure is dynamic
-export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Promise<AnalysisResult> {
+export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any, applyFiltered = true): Promise<AnalysisResult> {
 	let totalUncompressedSize = 0;
 	let totalGzipSize = 0;
 	let fileCount = 0;
@@ -71,25 +71,32 @@ export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any): Prom
 
 	// Build includeSet from pkg.files if present
 	let includeSet: Set<string> | null = null;
-	if (Array.isArray(pkgJson.files) && pkgJson.files.length > 0) {
+	if (applyFiltered && Array.isArray(pkgJson.files) && pkgJson.files.length > 0) {
 		includeSet = new Set<string>();
 		for (const pattern of pkgJson.files as string[]) {
-			const g = new Bun.Glob(pattern);
-			for await (const f of g.scan({ cwd: pkgPath, onlyFiles: true })) {
-				includeSet.add(f);
+			let pat = pattern;
+			if (pat.startsWith('./')) pat = pat.slice(2);
+			const isDir = pat.endsWith('/');
+			const patternsToScan = isDir || pat.includes('*') ? [pat] : [pat, `${pat}/**/*`];
+
+			for (const scanPat of patternsToScan) {
+				const g = new Bun.Glob(scanPat);
+				for await (const f of g.scan({ cwd: pkgPath, onlyFiles: true })) {
+					includeSet.add(f.replace(/\\\\/g, '/'));
+				}
 			}
 		}
 		// Always include mandatory npm files
 		const mandatoryGlob = new Bun.Glob('{package.json,README*,LICENSE*,LICENCE*,CHANGELOG*}');
 		for await (const f of mandatoryGlob.scan({ cwd: pkgPath, onlyFiles: true })) {
-			includeSet.add(f);
+			includeSet.add(f.replace(/\\\\/g, '/'));
 		}
 	}
 
-	// Single scan pass — filter by includeSet and hard exclusions
 	for await (const relativePath of new Bun.Glob('**/*').scan({ cwd: pkgPath, onlyFiles: true })) {
-		if (includeSet && !includeSet.has(relativePath)) continue;
-		if (isExcluded(relativePath)) continue;
+		const normalizedPath = relativePath.replace(/\\\\/g, '/');
+		if (includeSet && !includeSet.has(normalizedPath)) continue;
+		if (isExcluded(normalizedPath)) continue;
 		await measureFile(join(pkgPath, relativePath));
 	}
 
@@ -169,7 +176,7 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 		}
 
 		const pkgJson = await pkgJsonFile.json();
-		return await analyzeLocalDirectory(pkgPath, pkgJson);
+		return await analyzeLocalDirectory(pkgPath, pkgJson, false);
 	} finally {
 		try {
 			await spawn({ cmd: ['rm', '-rf', tempDir] }).exited;

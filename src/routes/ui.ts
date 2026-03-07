@@ -1267,15 +1267,7 @@ function buildHTML(starCount: number) {
                 </button>
             </div>
 
-            <!-- Usage hint -->
-            <div id="usageHint" style="font-size:0.85rem; color:#888; margin:-15px 0 28px; line-height:1.6; text-align: left; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border)">
-                <ul style="margin: 0; padding-left: 20px; list-style-type: disc">
-                    <li>Vuoi cercare un package npm? Digita semplicemente il nome del pacchetto (es. <code style="color:var(--pink)">react</code>)</li>
-                    <li>Vuoi cercare una repo github? Digita <code style="color:var(--pink)">&lt;user/org&gt;/&lt;nome-repo&gt;</code></li>
-                    <li>Vuoi analizzare o comparare un branch? Usa <code style="color:var(--pink)">&lt;user/org&gt;/&lt;nome-repo&gt;/tree/&lt;nome-branch&gt;</code></li>
-                    <li>Vuoi analizzare un workspace di un monorepo? Aggiungi <code style="color:var(--pink)">:&lt;subpath&gt;</code> alla fine</li>
-                </ul>
-            </div>
+            <div id="usageHint" style="font-size:0.82rem; color:#666; margin:-20px 0 28px; line-height:1.6">Search npm packages like <span style="color:var(--pink)">react</span> or <span style="color:var(--pink)">@tanstack/react-query</span>, or GitHub repos like <span style="color:var(--pink)">facebook/react</span> or <span style="color:var(--pink)">tanstack/query/tree/beta</span> for a specific branch.</div>
             <!-- ANALYZE MODE -->
             <div id="analyzeMode">
                 <div class="search-row">

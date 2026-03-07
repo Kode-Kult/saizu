@@ -18,7 +18,7 @@ api.use('*', async (c, next) => {
 
 // Format internal AnalysisResult to the public API contract
 const formatPackageResult = (data: AnalysisResult | RepoAnalysisResult) => {
-	const calcDlTime = (bytes: number, bps: number) => Math.round((bytes / bps) * 1000);
+	const calcDlTime = (bytes: number, bps: number) => Number(((bytes / bps) * 1000).toFixed(2));
 	const base = {
 		packageName: data.packageName,
 		packageVersion: data.version,

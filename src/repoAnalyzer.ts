@@ -86,19 +86,34 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 
 		const pkgJson = await pkgJsonFile.json();
 
-		// 4. Monorepo root detection
-		if (!pkgJson.files && pkgJson.workspaces) {
-			const workspaces = Array.isArray(pkgJson.workspaces)
+		// 4. Analyze using the unified analyzeLocalDirectory (same logic as npm flow)
+		const baseAnalysis = await analyzeLocalDirectory(analysisDir, pkgJson);
+
+		// 5. Monorepo root detection (convert workspaces into pseudo-dependencies)
+		const isRootMonorepo = !subpath && pkgJson.workspaces;
+		const monorepoPackages: string[] = [];
+		if (isRootMonorepo) {
+			const workspacesConfig = Array.isArray(pkgJson.workspaces)
 				? pkgJson.workspaces
 				: ((pkgJson.workspaces as { packages?: string[] }).packages ?? []);
-			const err = new Error('MONOREPO_ROOT');
-			// biome-ignore lint/suspicious/noExplicitAny: Custom error with dynamic properties
-			(err as any).workspaces = workspaces;
-			throw err;
-		}
 
-		// 5. Analyze using the unified analyzeLocalDirectory (same logic as npm flow)
-		const baseAnalysis = await analyzeLocalDirectory(analysisDir, pkgJson);
+			for (const pattern of workspacesConfig) {
+				let pat = pattern;
+				if (pat.startsWith('./')) pat = pat.slice(2);
+				if (pat.endsWith('/*')) pat = pat.slice(0, -2);
+				if (pat.endsWith('/')) pat = pat.slice(0, -1);
+
+				const glob = new Bun.Glob(`${pat}/package.json`);
+				for await (const match of glob.scan({ cwd: tmpDir, onlyFiles: true })) {
+					const pkgDir = match.replace(/[/\\]?package\.json$/, '').replace(/\\\\/g, '/');
+					monorepoPackages.push(`${owner}/${repo}:${pkgDir}`);
+				}
+			}
+			// Prepend monorepo sub-packages as dependencies so the UI shows them interactively
+			if (monorepoPackages.length > 0) {
+				baseAnalysis.dependencies = [...monorepoPackages, ...baseAnalysis.dependencies];
+			}
+		}
 
 		// 6. npmComparison
 		let npmComparison: RepoAnalysisResult['npmComparison'] = {
