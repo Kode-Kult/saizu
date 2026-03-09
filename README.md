@@ -50,7 +50,7 @@ curl "https://saizu.dev/api/v1/package/@tanstack/react-query"
 curl "https://saizu.dev/api/v1/repo/facebook/react"
 
 # 5. Analyze a GitHub repo with branch and subpath (Monorepo)
-curl "https://saizu.dev/api/v1/repo/tanstack/query?branch=beta&subpath=packages/react-query"
+curl "https://saizu.dev/api/v1/repo/TanStack/query?branch=v4&subpath=packages/react-query"
 
 # 6. Compare two packages (npm vs npm)
 curl "https://saizu.dev/api/v1/compare?a=axios&b=ky"
