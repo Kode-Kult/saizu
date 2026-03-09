@@ -29,8 +29,12 @@ function isExcluded(relativePath: string): boolean {
 	return false;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: package.json structure is dynamic
-export async function analyzeLocalDirectory(pkgPath: string, pkgJson: any, applyFiltered = true): Promise<AnalysisResult> {
+export async function analyzeLocalDirectory(
+	pkgPath: string,
+	// biome-ignore lint/suspicious/noExplicitAny: package.json structure is dynamic
+	pkgJson: any,
+	applyFiltered = true,
+): Promise<AnalysisResult> {
 	let totalUncompressedSize = 0;
 	let totalGzipSize = 0;
 	let fileCount = 0;
