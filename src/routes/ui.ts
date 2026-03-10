@@ -726,8 +726,9 @@ const rawJS = `
                     alert('Analysis Error: ' + err.message);
                 }
             } finally {
-                btn.disabled = false;
                 loader(false);
+                // Cooldown: prevent rapid re-submissions for 3 seconds
+                setTimeout(() => { btn.disabled = false; }, 3000);
             }
         }
 

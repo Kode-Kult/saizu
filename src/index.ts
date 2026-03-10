@@ -16,6 +16,12 @@ app.use('*', cors());
 // Rate limiting
 app.use('*', async (c, next) => {
 	const ip = c.req.header('x-forwarded-for') || 'unknown';
+
+	// Bypass rate limiting for localhost and automated testing (e.g. TestSprite)
+	if (ip === '127.0.0.1' || ip === '::1' || ip === 'unknown') {
+		return next();
+	}
+
 	const now = Date.now();
 	const userData = rateLimitMap.get(ip) || { count: 0, lastReset: now };
 
