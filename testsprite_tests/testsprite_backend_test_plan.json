@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "get api v1 returns api metadata",
+    "description": "Test GET /api/v1 to verify it returns 200 with JSON containing version, baseUrl, endpoints, and targetFormats."
+  },
+  {
+    "id": "TC002",
+    "title": "get api v1 health returns service status",
+    "description": "Test GET /api/v1/health to verify it returns 200 with JSON containing status 'ok', version, and uptime."
+  },
+  {
+    "id": "TC003",
+    "title": "get api v1 package name analyzes npm package",
+    "description": "Test GET /api/v1/package/:name with valid package names (including scoped) to verify it returns 200 with detailed package analysis JSON."
+  },
+  {
+    "id": "TC004",
+    "title": "get api v1 package name handles missing or invalid package",
+    "description": "Test GET /api/v1/package/:name with missing name, nonexistent package, and heavy package to verify it returns 400, 404, and 500 errors respectively."
+  },
+  {
+    "id": "TC005",
+    "title": "get api v1 repo owner repo analyzes github repo",
+    "description": "Test GET /api/v1/repo/:owner/:repo with valid owner and repo, optional branch and subpath to verify it returns 200 with repo analysis JSON."
+  },
+  {
+    "id": "TC006",
+    "title": "get api v1 repo owner repo handles error scenarios",
+    "description": "Test GET /api/v1/repo/:owner/:repo with missing params, private repo, nonexistent branch, clone timeout, and no package json to verify appropriate error responses (400, 404, 408, 422)."
+  },
+  {
+    "id": "TC007",
+    "title": "get api v1 compare compares two targets",
+    "description": "Test GET /api/v1/compare with valid query params a and b (npm packages or github repos) to verify it returns 200 with side-by-side comparison JSON."
+  },
+  {
+    "id": "TC008",
+    "title": "get api v1 compare handles missing params error",
+    "description": "Test GET /api/v1/compare without query params a or b to verify it returns 400 with error 'MISSING_PARAMS'."
+  },
+  {
+    "id": "TC009",
+    "title": "get api package analyzes non scoped and scoped packages",
+    "description": "Test GET /api/:package and GET /api/:scope/:package with valid package names to verify it returns 200 with analysis result JSON."
+  },
+  {
+    "id": "TC010",
+    "title": "get badge package generates svg badge",
+    "description": "Test GET /badge/:package and GET /badge/:scope/:package with valid package names and owner/repo to verify it returns 200 with SVG image content type."
+  }
+]

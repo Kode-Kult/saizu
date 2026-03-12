@@ -20,7 +20,7 @@ Need to choose between two packages? The **Compare** mode puts them side by side
 
 ## Why Saizu
 
-Most bundle analyzers require you to install a package locally, run a build, and parse the output. Saizu does none of that — it installs the package in an isolated temp directory, measures it, and discards it. The result is cached in-memory for subsequent requests.
+Saizu installs the package in an isolated temp directory, measures it, and discards it. The result is cached in-memory for subsequent requests.
 
 No database. No external services. No persistence layer. Just a single process, a temp folder, and an in-memory cache. The whole analysis takes a few seconds and works on any package, any version, any scope.
 
