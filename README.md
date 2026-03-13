@@ -102,9 +102,10 @@ curl "https://saizu.dev/api/v1/"
 }
 ```
 
-
 > Note: the API returns all sizes in **pure bytes** and download times in **milliseconds**.
+<br>
 
+https://github.com/user-attachments/assets/532005bc-5ed9-4af8-875e-60d6892f038a
 
 ## Analyze Preview
 
