@@ -1,0 +1,142 @@
+version: "2"
+type: backend
+tech_stack:
+  - typescript
+  - bun
+  - hono
+routes:
+  - path: /api/v1/health
+    method: GET
+    file: src/api.ts
+    auth_required: false
+    description: Health check endpoint. Returns JSON with status, version, uptime.
+    response_schema:
+      status: string (always "ok")
+      version: string
+      uptime: number (seconds)
+
+  - path: /api/v1/package/:name
+    method: GET
+    file: src/api.ts
+    auth_required: false
+    description: >
+      Analyze a published npm package by name. Supports scoped packages via wildcard routing.
+      Optional query param: ?version=x.y.z
+    response_schema:
+      source: string (always "npm")
+      packageName: string
+      packageVersion: string
+      description: string
+      license: string
+      repository: string
+      homepage: string
+      gzipSize: number (bytes)
+      installSize: number (bytes)
+      fileCount: number
+      typeBreakdown: object (keys are file extensions like "js", "ts", "json", values are byte counts)
+      dependencies: array of strings
+      dependencyCount: number
+      hasESM: boolean
+      hasCJS: boolean
+      hasTypes: boolean
+      downloadTime: object with keys "4g", "wifi", "gbit" (values in milliseconds)
+      cachedAt: string (ISO 8601 datetime)
+
+  - path: /api/v1/repo/:owner/:repo
+    method: GET
+    file: src/api.ts
+    auth_required: false
+    description: >
+      Analyze a public GitHub repository. Optional query params: ?branch=main&subpath=packages/core
+    response_schema:
+      source: string (always "github")
+      owner: string
+      repo: string
+      branch: string
+      subpath: string or undefined
+      commit: string (short hash)
+      packageName: string
+      packageVersion: string
+      description: string
+      license: string
+      repository: string
+      homepage: string
+      gzipSize: number (bytes)
+      installSize: number (bytes)
+      fileCount: number
+      typeBreakdown: object (keys are file extensions, values are byte counts)
+      dependencies: array of strings
+      dependencyCount: number
+      hasESM: boolean
+      hasCJS: boolean
+      hasTypes: boolean
+      downloadTime: object with keys "4g", "wifi", "gbit" (values in milliseconds)
+      npmComparison: object with keys available (boolean), publishedVersion, gzipDelta, installDelta, verdict
+      cachedAt: string (ISO 8601 datetime)
+
+  - path: /api/v1/compare
+    method: GET
+    file: src/api.ts
+    auth_required: false
+    description: >
+      Compare two npm packages or GitHub repos. Query params: ?a=react&b=vue
+      Targets can be npm names or github:owner/repo format.
+    query_params:
+      a: required, first target (e.g. "react" or "github:facebook/react")
+      b: required, second target (e.g. "vue" or "github:vuejs/core")
+    response_schema:
+      a: object (same schema as /api/v1/package/:name response)
+      b: object (same schema as /api/v1/package/:name response)
+      diff:
+        gzipSize: number (a.gzipSize - b.gzipSize)
+        installSize: number (a.installSize - b.installSize)
+        dependencyCount: number (a.dependencyCount - b.dependencyCount)
+        smaller: string ("a", "b", or "equal")
+
+  - path: /badge/:package
+    method: GET
+    file: src/routes/badge.ts
+    auth_required: false
+    description: >
+      Generate an SVG badge for a package. Optional query param: ?type=gzip or ?type=install.
+      For scoped packages use /badge/@scope/package. Returns SVG image with Content-Type image/svg+xml.
+    response_content_type: image/svg+xml
+
+features:
+  - name: NPM Package Analysis
+    description: Analyzes install size, gzip size, file type breakdown, dependencies, module format and license of any npm package
+    files:
+      - src/api.ts
+      - src/analyzer.ts
+    entry_route: /api/v1/package/:name
+
+  - name: GitHub Repo Analysis
+    description: Clones and analyzes a public GitHub repo to produce the same metrics as npm packages
+    files:
+      - src/api.ts
+      - src/repoAnalyzer.ts
+    entry_route: /api/v1/repo/:owner/:repo
+
+  - name: Package Comparison
+    description: Compares two targets side-by-side using query params ?a=...&b=...
+    files:
+      - src/api.ts
+    entry_route: /api/v1/compare
+
+  - name: Badge Generation
+    description: Returns an SVG badge image showing gzip or install size for a package
+    files:
+      - src/routes/badge.ts
+      - src/badge.ts
+    entry_route: /badge/:package
+
+  - name: Health Check
+    description: Simple health check returning status ok
+    files:
+      - src/api.ts
+    entry_route: /api/v1/health
+
+known_limitations:
+  - The /api/v1/repo endpoint requires git to be installed and may timeout on very large repositories
+  - Use small packages like "is-odd" or "ms" for testing npm analysis, not huge ones like "react"
+  - Badge endpoint returns SVG, not JSON

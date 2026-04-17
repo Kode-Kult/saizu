@@ -154,7 +154,8 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 	const fullPkgName = version ? `${name}@${version}` : name;
 
 	try {
-		await spawn({ cmd: ['mkdir', '-p', tempDir], stderr: 'ignore' }).exited;
+		const { mkdir } = await import('node:fs/promises');
+		await mkdir(tempDir, { recursive: true });
 		await Bun.write(join(tempDir, 'package.json'), JSON.stringify({ name: 'temp-analysis', private: true }));
 
 		const proc = spawn({
@@ -183,7 +184,8 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 		return await analyzeLocalDirectory(pkgPath, pkgJson, false);
 	} finally {
 		try {
-			await spawn({ cmd: ['rm', '-rf', tempDir] }).exited;
+			const { rm } = await import('node:fs/promises');
+			await rm(tempDir, { recursive: true, force: true });
 		} catch (_e) {}
 	}
 }

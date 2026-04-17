@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3009",
+  "executionArgs": {
+    "projectName": "saizu",
+    "projectPath": "c:\\Users\\luigi\\Documents\\GitHub\\saizu",
+    "testIds": [],
+    "additionalInstruction": "The /compare endpoint MUST be called strictly using '?a=react&b=vue' format for package comparison. Do NOT use '?target=' query parameters.",
+    "serverMode": "production",
+    "envs": {
+      "API_KEY": "sk-user-qIJFkOw7KsLKqzkqbO8tQZTX-SGrdhhgmuC8HNSyLSUac0k0aVpOwMoO4rRoVKHOmVF9xK77OhyWJQu2YsubzVD0WsEROJ10irDontanoDlXnEpFbQ7r0cKIMn22huEmOZI"
+    }
+  },
+  "serverPort": 50853,
+  "proxy": "http://90ed2449-0039-4b47-b813-6fd48e959f74:yKhIkMJnROEo8WDaZZGXVEs4gq2xzcCp@tun.testsprite.com:8080"
+}

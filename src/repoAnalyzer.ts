@@ -165,7 +165,8 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 		};
 	} finally {
 		try {
-			await Bun.spawn(['rm', '-rf', tmpDir]).exited;
+			const { rm } = await import('node:fs/promises');
+			await rm(tmpDir, { recursive: true, force: true });
 		} catch (_e) {}
 	}
 }

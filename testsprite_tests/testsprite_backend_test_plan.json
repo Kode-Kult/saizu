@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "health_endpoint_returns_status_ok",
+    "description": "Send GET to /api/v1/health. Assert HTTP 200. Assert JSON has 'status' equal to 'ok', 'version' as a non-empty string, and 'uptime' as a positive number."
+  },
+  {
+    "id": "TC002",
+    "title": "api_root_lists_available_endpoints",
+    "description": "Send GET to /api/v1/. Assert HTTP 200. Assert JSON has 'version' as string, 'baseUrl' as string, and 'endpoints' as a non-empty array where each item has 'method', 'path', and 'description' keys."
+  },
+  {
+    "id": "TC003",
+    "title": "analyze_small_npm_package",
+    "description": "Send GET to /api/v1/package/is-odd. Assert HTTP 200. Assert JSON has: source='npm', packageName='is-odd', packageVersion as non-empty string, gzipSize as positive integer, installSize as positive integer, fileCount as positive integer, typeBreakdown as non-empty dict with string keys and integer values, dependencies as array, dependencyCount as non-negative integer, hasESM as boolean, hasCJS as boolean, hasTypes as boolean, license as string, downloadTime as dict with keys '4g' and 'wifi' and 'gbit', cachedAt as non-empty string."
+  },
+  {
+    "id": "TC004",
+    "title": "analyze_scoped_npm_package",
+    "description": "Send GET to /api/v1/package/@sindresorhus/is. Assert HTTP 200. Assert JSON has source='npm', packageName='@sindresorhus/is', gzipSize as positive integer, installSize as positive integer, typeBreakdown as non-empty dict."
+  },
+  {
+    "id": "TC005",
+    "title": "analyze_nonexistent_package_returns_error",
+    "description": "Send GET to /api/v1/package/this-package-does-not-exist-xyz-999. Assert HTTP status is 404 or 500. Assert JSON has 'error' as a non-empty string and 'message' as a non-empty string."
+  },
+  {
+    "id": "TC006",
+    "title": "compare_two_packages_returns_diff",
+    "description": "Send GET to /api/v1/compare?a=is-odd&b=is-even. Assert HTTP 200. Assert JSON has 'a' as dict with keys packageName, gzipSize, installSize. Assert JSON has 'b' as dict with keys packageName, gzipSize, installSize. Assert JSON has 'diff' as dict with keys gzipSize (integer), installSize (integer), dependencyCount (integer), smaller (string, one of 'a', 'b', 'equal')."
+  },
+  {
+    "id": "TC007",
+    "title": "compare_missing_params_returns_400",
+    "description": "Send GET to /api/v1/compare (without query params). Assert HTTP 400. Assert JSON has error='MISSING_PARAMS'."
+  },
+  {
+    "id": "TC008",
+    "title": "badge_returns_svg_for_gzip",
+    "description": "Send GET to /badge/is-odd?type=gzip. Assert HTTP 200. Assert Content-Type header contains 'image/svg+xml'. Assert response body is a string containing '<svg'."
+  },
+  {
+    "id": "TC009",
+    "title": "badge_returns_svg_for_install_size",
+    "description": "Send GET to /badge/is-odd?type=install. Assert HTTP 200. Assert Content-Type header contains 'image/svg+xml'. Assert response body is a string containing '<svg'."
+  },
+  {
+    "id": "TC010",
+    "title": "cached_response_returns_cache_hit_header",
+    "description": "Send GET to /api/v1/package/is-odd twice. On the second request, assert the response header X-Cache equals 'HIT'. Both requests should return HTTP 200."
+  }
+]

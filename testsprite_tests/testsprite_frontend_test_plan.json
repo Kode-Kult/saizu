@@ -1,0 +1,122 @@
+[
+  {
+    "id": "TC001",
+    "title": "Health endpoint returns status ok",
+    "description": "Verifies the health endpoint returns a 200 response with JSON containing status, version, and uptime.",
+    "category": "Health Check",
+    "steps": [
+      { "type": "action", "description": "Navigate to /api/v1/health" },
+      { "type": "assertion", "description": "Verify the response status code is 200" },
+      { "type": "assertion", "description": "Verify the response body is valid JSON containing status equal to 'ok', version as string, and uptime as number" }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Analyze small npm package is-odd",
+    "description": "Verifies analyzing a small npm package returns key metrics including gzipSize, installSize, typeBreakdown, dependencies, and module format flags.",
+    "category": "NPM Package Analysis",
+    "steps": [
+      { "type": "action", "description": "Navigate to /api/v1/package/is-odd" },
+      { "type": "assertion", "description": "Verify the response status code is 200" },
+      { "type": "assertion", "description": "Verify the response body is valid JSON containing source equal to 'npm', packageName equal to 'is-odd', packageVersion as string, gzipSize as positive number, installSize as positive number, fileCount as positive number, typeBreakdown as non-empty object, dependencies as array, dependencyCount as number, hasESM as boolean, hasCJS as boolean, hasTypes as boolean, downloadTime as object with keys '4g' 'wifi' 'gbit', and cachedAt as string" }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Analyze npm package with specific version",
+    "description": "Verifies requesting a specific version via query param returns analysis JSON for that version.",
+    "category": "NPM Package Analysis",
+    "steps": [
+      { "type": "action", "description": "Navigate to /api/v1/package/ms?version=2.1.3" },
+      { "type": "assertion", "description": "Verify the response status code is 200" },
+      { "type": "assertion", "description": "Verify the response body contains packageName equal to 'ms' and packageVersion equal to '2.1.3'" }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Nonexistent package returns 404 error",
+    "description": "Verifies requesting a nonexistent npm package returns a 404 with JSON error.",
+    "category": "NPM Package Analysis",
+    "steps": [
+      { "type": "action", "description": "Navigate to /api/v1/package/this-package-does-not-exist-xyz-999" },
+      { "type": "assertion", "description": "Verify the response status code is 404" },
+      { "type": "assertion", "description": "Verify the response body is valid JSON with error and message fields" }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC005",
+    "title": "Compare two npm packages with query params",
+    "description": "Verifies comparing two npm packages returns both analyses and a computed diff.",
+    "category": "Package Comparison",
+    "steps": [
+      { "type": "action", "description": "Navigate to /api/v1/compare?a=is-odd&b=is-even" },
+      { "type": "assertion", "description": "Verify the response status code is 200" },
+      { "type": "assertion", "description": "Verify the response body is valid JSON containing 'a' object with packageName and gzipSize, 'b' object with packageName and gzipSize, and 'diff' object with gzipSize, installSize, dependencyCount, and smaller" }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Compare endpoint rejects missing params",
+    "description": "Verifies missing required comparison parameters returns 400 with error.",
+    "category": "Package Comparison",
+    "steps": [
+      { "type": "action", "description": "Navigate to /api/v1/compare" },
+      { "type": "assertion", "description": "Verify the response status code is 400" },
+      { "type": "assertion", "description": "Verify the response body is valid JSON describing an error" }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC007",
+    "title": "Default badge returns SVG",
+    "description": "Verifies requesting a badge without type parameter returns a valid SVG image.",
+    "category": "Badge Generation",
+    "steps": [
+      { "type": "action", "description": "Navigate to /badge/ms" },
+      { "type": "assertion", "description": "Verify the response Content-Type header contains 'image/svg+xml'" },
+      { "type": "assertion", "description": "Verify the response body contains '<svg' indicating a valid SVG document" }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC008",
+    "title": "Gzip badge returns SVG with gzip label",
+    "description": "Verifies requesting a gzip badge returns SVG with gzip size label.",
+    "category": "Badge Generation",
+    "steps": [
+      { "type": "action", "description": "Navigate to /badge/ms?type=gzip" },
+      { "type": "assertion", "description": "Verify the response Content-Type header contains 'image/svg+xml'" },
+      { "type": "assertion", "description": "Verify the response body contains '<svg' and 'gzip'" }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC009",
+    "title": "Install badge returns SVG with install label",
+    "description": "Verifies requesting an install badge returns SVG with install size label.",
+    "category": "Badge Generation",
+    "steps": [
+      { "type": "action", "description": "Navigate to /badge/ms?type=install" },
+      { "type": "assertion", "description": "Verify the response Content-Type header contains 'image/svg+xml'" },
+      { "type": "assertion", "description": "Verify the response body contains '<svg' and 'install'" }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC010",
+    "title": "API root lists available endpoints",
+    "description": "Verifies the API root returns a list of available endpoints.",
+    "category": "API Documentation",
+    "steps": [
+      { "type": "action", "description": "Navigate to /api/v1/" },
+      { "type": "assertion", "description": "Verify the response status code is 200" },
+      { "type": "assertion", "description": "Verify the response body is valid JSON containing version as string, baseUrl as string, and endpoints as non-empty array" }
+    ],
+    "priority": "Low"
+  }
+]
