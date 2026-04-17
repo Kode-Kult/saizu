@@ -6,7 +6,7 @@
 	"scripts": {
 		"lint": "biome lint .",
 		"format": "biome format . --write",
-		"check": "biome check --ignored-path=testsprite_tests . ",
+		"check": "biome check . --config-path=biome.json",
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
