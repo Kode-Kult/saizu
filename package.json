@@ -6,7 +6,8 @@
 	"scripts": {
 		"lint": "biome lint .",
 		"format": "biome format . --write",
-		"check": "biome check . --config-path=biome.json",
+		"check": "biome check .",
+		"check-config-path": "biome check --config-path=./biome.json .",
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
