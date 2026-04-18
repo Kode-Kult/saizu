@@ -154,7 +154,7 @@ export async function analyzePackage(name: string, version?: string): Promise<An
 	const fullPkgName = version ? `${name}@${version}` : name;
 
 	try {
-await spawn({ cmd: ['mkdir', '-p', tempDir], stderr: 'ignore' }).exited;
+		await spawn({ cmd: ['mkdir', '-p', tempDir], stderr: 'ignore' }).exited;
 		await Bun.write(join(tempDir, 'package.json'), JSON.stringify({ name: 'temp-analysis', private: true }));
 
 		const proc = spawn({
@@ -183,7 +183,7 @@ await spawn({ cmd: ['mkdir', '-p', tempDir], stderr: 'ignore' }).exited;
 		return await analyzeLocalDirectory(pkgPath, pkgJson, false);
 	} finally {
 		try {
-			await Bun.spawn(['rm', '-rf', tempDir]).exited;
+			await spawn({ cmd: ['rm', '-rf', tempDir] }).exited;
 		} catch (_e) {}
 	}
 }

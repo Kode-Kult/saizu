@@ -165,7 +165,7 @@ export async function analyzeRepo(options: RepoAnalysisOptions): Promise<RepoAna
 		};
 	} finally {
 		try {
-await Bun.spawn(['rm', '-rf', tmpDir]).exited;
+			await Bun.spawn(['rm', '-rf', tmpDir]).exited;
 		} catch (_e) {}
 	}
 }
